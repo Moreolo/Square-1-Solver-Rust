@@ -1,0 +1,10 @@
+[package]
+name = "square-1-solver-rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5.28", features = ["derive"] }
+indicatif = "0.17.11"
+rayon = "1.10.0"
+bytemuck = "1.21.0"
