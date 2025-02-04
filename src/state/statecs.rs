@@ -27,7 +27,7 @@ impl State for StateCS {
     }
 
     fn get_symmetric_indecies(&mut self) -> Vec<usize> {
-        Vec::new()
+        vec![]
     }
 
     fn get_square1_num(&self) -> u64 {
@@ -35,7 +35,7 @@ impl State for StateCS {
     }
 
     fn gen_next_positions(sq1num: u64) -> Vec<u64> {
-        let mut opened = Vec::new();
+        let mut opened = vec![];
         for mirror in [false, true] {
             let mut base = Square1::from_num(sq1num);
             if mirror { base.mirror_layers(); }
@@ -227,7 +227,14 @@ impl StateCS {
     fn get_case_6e(shape: &Vec<usize>) -> usize {
         let highest = if let Some(max) = shape.iter().max() {*max} else {0};
         let previous = match shape.iter().position(|&x| x == highest) {
-            Some(index) => shape[(3 + index - 1) % 3],
+            Some(index) => {
+                let prev = shape[(3 + index - 1) % 3];
+                if prev == 0 && highest == 3 {
+                    3
+                } else {
+                    prev
+                }
+            }
             None => 0
         };
         match highest - previous + 3.min(highest - 2) {

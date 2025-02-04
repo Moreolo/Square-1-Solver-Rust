@@ -47,9 +47,7 @@ impl State for StateAll {
             let modified = self.sq1.clone();
             for up_turn in up_turns {
                 for down_turn in down_turns {
-                    if !*mirror && !*flip && *up_turn == 0 && *down_turn == 0 {
-                        continue;
-                    } else {
+                    if *mirror || *flip || *up_turn != 0 || *down_turn != 0 {
                         if *mirror {
                            self.sq1.turn_layers(&(self.up_re + *up_turn, self.down_re + *down_turn)); 
                         } else {
@@ -307,33 +305,37 @@ impl StateAll {
 
     fn get_shape_turn(&self, for_up: bool, shape: Vec<usize>) -> usize {
         let highest: usize = Self::max(&shape);
-        let piece_count: usize = 12 - shape.len();
+        if highest == 0 {
+            0
+        } else {
+            let piece_count: usize = 12 - shape.len();
 
-        let mut edge_count: usize = 0;
-        let mut turn: usize = 0;
-        while edge_count < highest {
-            if self.sq1.pieces[if for_up {turn} else {15 - turn}] & 1 == 0 {
-                edge_count = 0;
-            } else {
-                edge_count += 1;
+            let mut edge_count: usize = 0;
+            let mut turn: usize = 0;
+            while edge_count < highest {
+                if self.sq1.pieces[if for_up {turn} else {15 - turn}] & 1 == 0 {
+                    edge_count = 0;
+                } else {
+                    edge_count += 1;
+                }
+                turn = (turn + 1) % piece_count
             }
-            turn = (turn + 1) % piece_count
-        }
 
-        if shape.iter().filter(|x| **x == highest).count() == 2 {
-            if self.sq1.pieces[if for_up {turn + 1} else {15 - (turn + 1)}] & 1 != 0 {
-                turn = (turn + 1 + highest) % piece_count;
-            } else if highest == 1 {
-                if self.sq1.pieces[if for_up {turn + 2} else {15 - (turn + 2)}] & 1 != 0 {
-                    turn = (turn + 3) % piece_count;
+            if shape.iter().filter(|x| **x == highest).count() == 2 {
+                if self.sq1.pieces[if for_up {turn + 1} else {15 - (turn + 1)}] & 1 != 0 {
+                    turn = (turn + 1 + highest) % piece_count;
+                } else if highest == 1 {
+                    if self.sq1.pieces[if for_up {turn + 2} else {15 - (turn + 2)}] & 1 != 0 {
+                        turn = (turn + 3) % piece_count;
+                    }
                 }
             }
-        }
-        
-        if for_up {
-            turn
-        } else {
-            (piece_count - turn) % piece_count
+            
+            if for_up {
+                turn
+            } else {
+                (piece_count - turn) % piece_count
+            }
         }
     }
 
@@ -381,7 +383,14 @@ impl StateAll {
     fn get_case_6e(shape: &Vec<usize>) -> usize {
         let highest = Self::max(shape);
         let previous = match shape.iter().position(|&x| x == highest) {
-            Some(index) => shape[(3 + index - 1) % 3],
+            Some(index) => {
+                let prev = shape[(3 + index - 1) % 3];
+                if prev == 0 && highest == 3 {
+                    3
+                } else {
+                    prev
+                }
+            }
             None => 0
         };
         match highest - previous + 3.min(highest - 2) {

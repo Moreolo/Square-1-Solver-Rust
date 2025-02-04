@@ -3,7 +3,7 @@ pub mod postable;
 use std::{fs, str::FromStr, sync::{Arc, RwLock}, time::{Duration, Instant}};
 
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
-use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 
 use crate::{square1::Square1, state::State};
 

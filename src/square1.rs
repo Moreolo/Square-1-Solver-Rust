@@ -57,7 +57,7 @@ impl Square1 {
         Square1 {pieces: arr}
     }
 
-    pub(crate) fn get_num(&self) -> u64 {
+    pub fn get_num(&self) -> u64 {
         let mut num: u64 = 0;
         for piece in self.pieces {
             num *= 16;
@@ -158,7 +158,7 @@ impl Square1 {
         self.mirror_layers_atd(self.get_divide());
     }
 
-    pub(crate) fn get_unique_turns(&self) -> Vec<(usize, usize)> {
+    pub fn get_unique_turns(&self) -> Vec<(usize, usize)> {
         let mut angle: u8 = 0;
         let mut turn: usize = 0;
         let mut potential_angles: Vec<u8> = Vec::new();
@@ -219,7 +219,7 @@ impl Square1 {
         turns
     }
 
-    pub(crate) fn get_unique_turns_sqsq(&self) -> [(usize, usize); 16] {
+    pub fn get_unique_turns_sqsq(&self) -> [(usize, usize); 16] {
         if self.pieces[0] & 1 != self.pieces[15] & 1 {
             SQSQ_UNIQUE_TURNS_BA
         } else if self.pieces[0] & 1 == 0 {

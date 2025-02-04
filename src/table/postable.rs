@@ -31,11 +31,11 @@ impl PosTable {
         self.tab == 0 && self.index == 0
     }
 
-    pub(super) fn len(&self) -> usize {
+    pub(super) fn _len(&self) -> usize {
         self.tab * self.size + self.index
     }
 
-    pub(super) fn clear(&mut self) {
+    pub(super) fn _clear(&mut self) {
         self.table.clear();
         while self.tab > 0 {
             self.tab -= 1;

@@ -1,6 +1,5 @@
-use bytemuck::cast_slice;
 use square_1_solver_rust::{square1::Square1, state::{stateall::StateAll, State}};
-use std::{fs, time::Instant};
+use std::time::Instant;
 use square_1_solver_rust::table::postable::PosTable;
 
 fn main() {
