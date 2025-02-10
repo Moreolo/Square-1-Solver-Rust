@@ -60,7 +60,7 @@ impl<S: State + Sync> SliceCountTable<S> {
 
         // Starts looping over the Slice Depths
         let mut slice_depth = 1;
-        while !closed.is_empty() && !self.pb_table.is_finished() {
+        while !closed.is_empty() && !self.table_is_full() {
             // Shows Progress
             self.clear_pb_closed(closed.len() as u64, slice_depth);
 
@@ -95,7 +95,7 @@ impl<S: State + Sync> SliceCountTable<S> {
         }
 
         // Fills rest of the Table
-        if slice_depth == S::MAX_SLICES && !self.pb_table.is_finished() {
+        if slice_depth == S::MAX_SLICES && !self.table_is_full() {
             // Shows Progress
             self.pb_table.set_message("Filling rest");
             self.clear_pb_closed(S::SIZE as u64 - self.pb_table.position(), slice_depth);
@@ -147,6 +147,10 @@ impl<S: State + Sync> SliceCountTable<S> {
             let table = shared_table.read().unwrap();
             fs::write(Self::get_file_name(), table.clone()).expect("Saving Table failed!");
         }
+    }
+
+    fn table_is_full(&self) -> bool {
+        self.pb_table.position() == S::SIZE as u64
     }
 
     // Resets the Progressbar for the closed Table
