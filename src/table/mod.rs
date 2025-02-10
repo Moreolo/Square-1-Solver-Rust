@@ -56,6 +56,7 @@ impl<S: State + Sync> SliceCountTable<S> {
         closed.push(solved.get_num());
         let state = S::new(solved);
         let _ = Self::write_shared(&shared_table, state.get_index(), 0);
+        self.pb_table.inc(1);
 
         // Starts looping over the Slice Depths
         let mut slice_depth = 1;
