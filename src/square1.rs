@@ -44,7 +44,7 @@ impl Square1 {
         Square1 {pieces: from_fn(|i| i as u8)}
     }
 
-    pub(crate) fn _from_arr(arr: [u8; 16]) -> Square1 {
+    pub fn from_arr(arr: [u8; 16]) -> Square1 {
         Square1 {pieces: arr}
     }
 
@@ -219,6 +219,61 @@ impl Square1 {
         turns
     }
 
+    pub fn get_all_turns(&self) -> Vec<(usize, usize)> {
+        let mut angle: u8 = 0;
+        let mut turn: usize = 0;
+        let mut potential_angles: Vec<u8> = Vec::new();
+        let mut potential_turns: Vec<usize> = Vec::new();
+
+        while angle < 6 {
+            potential_angles.push(angle);
+            potential_turns.push(turn);
+            angle += self.get_angle(turn);
+            turn += 1;
+        }
+
+        let mut up_turns: Vec<(usize, usize)> = Vec::new();
+        while angle < 12 {
+            let potential_angle = angle - 6;
+            match potential_angles.iter().position(|&x| x == potential_angle) {
+                Some(index) => {up_turns.push((potential_turns[index], turn))},
+                None => {}
+            }
+            angle += self.get_angle(turn);
+            turn += 1;
+        }
+
+        let divide: usize = turn;
+        angle = 0;
+        turn = 0;
+        potential_angles.clear();
+        potential_turns.clear();
+        while angle < 6 {
+            potential_angles.push(angle);
+            potential_turns.push(turn);
+            angle += self.get_angle(divide + turn);
+            turn += 1;
+        }
+        let mut turns = Vec::new();
+        while angle < 12 {
+            let potential_angle = angle - 6;
+            match potential_angles.iter().position(|&x| x == potential_angle) {
+                Some(index) => {
+                    for (up_turn1, up_turn2) in &up_turns {
+                        turns.push((*up_turn1, potential_turns[index]));
+                        turns.push((*up_turn2, turn));
+                        turns.push((*up_turn1, turn));
+                        turns.push((*up_turn2, potential_turns[index]));
+                    }
+                },
+                None => {}
+            }
+            angle += self.get_angle(divide + turn);
+            turn += 1;
+        }
+        turns
+    }
+
     pub fn get_unique_turns_sqsq(&self) -> [(usize, usize); 16] {
         if self.pieces[0] & 1 != self.pieces[15] & 1 {
             SQSQ_UNIQUE_TURNS_BA
@@ -235,5 +290,42 @@ impl Square1 {
         } else {
             _SQSQ_ALL_TURNS_M
         }
+    }
+
+    pub fn get_human_readable(&self, turn: (usize, usize)) -> (i8, i8) {
+        let mut up_angle: i8 = 0;
+        let mut turns: usize = 0;
+        while turns < turn.0 {
+            up_angle += self.get_angle(turns) as i8;
+            turns += 1;
+        }
+        let mut down_angle: i8 = up_angle;
+        while down_angle < 12 {
+            down_angle += self.get_angle(turns) as i8;
+            turns += 1;
+        }
+        down_angle = 0;
+        let turns_offset = turns;
+        turns = 0;
+        while turns < turn.1 {
+            down_angle += self.get_angle(turns + turns_offset) as i8;
+            turns += 1;
+        }
+
+        up_angle *= -1;
+        if up_angle < -5 {
+            up_angle += 12
+        }
+        if down_angle > 6 {
+            down_angle -= 12
+        }
+        (up_angle, down_angle)
+    }
+
+    pub fn is_valid(&self) -> bool {
+        let mut set = self.pieces.to_vec();
+        set.sort();
+        set.dedup();
+        self.pieces.len() == 16 && set.len() == 16
     }
 }

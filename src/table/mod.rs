@@ -202,7 +202,7 @@ impl<S: State + Sync> SliceCountTable<S> {
         }
     }
 
-    pub fn read(table: Vec<u8>, index: usize) -> u8 {
+    pub fn read(table: &Vec<u8>, index: usize) -> u8 {
         if index & 1 == 0 {
             table[index / 2] >> 4
         } else {
@@ -211,6 +211,7 @@ impl<S: State + Sync> SliceCountTable<S> {
     }
 
     pub fn read_table_from_file() -> Vec<u8> {
+        println!("Loading Table");
         fs::read(Self::get_file_name()).expect("Unable to read file")
     }
 
