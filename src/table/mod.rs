@@ -145,6 +145,7 @@ impl<S: State + Sync> SliceCountTable<S> {
         println!("Saving Table to file");
         {
             let table = shared_table.read().unwrap();
+            let _ = fs::create_dir("slice_count_tables");
             fs::write(Self::get_file_name(), table.clone()).expect("Saving Table failed!");
         }
     }
