@@ -8,4 +8,3 @@ clap = { version = "4.5.34", features = ["derive"] }
 indicatif = "0.17.11"
 rayon = "1.10.0"
 bytemuck = "1.21.0"
-memmap2 = "0.9.5"

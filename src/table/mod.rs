@@ -4,7 +4,7 @@ use std::{fs::{self}, str::FromStr, sync::{Arc, RwLock}, time::{Duration, Instan
 
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
 use postable::PosTable;
-use rayon::iter::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 
 use crate::{square1::Square1, state::State};
 
@@ -159,7 +159,8 @@ impl<S: State + Sync> SliceCountTable<S> {
         let shared_table: Arc<RwLock<Vec<u8>>> = Arc::new(RwLock::new(vec![255 as u8; (S::SIZE + 1) / 2]));
 
         // Creates empty closed Table
-        let mut closed = PosTable::new("closed", 0, 8_000_000_000);
+        let mut closed = PosTable::new("closed", 0);
+        let mut buffer = vec![0; 5_000_000];
 
         // Fills in the solved State and adds first closed Position
         let solved = Square1::solved();
@@ -177,14 +178,15 @@ impl<S: State + Sync> SliceCountTable<S> {
 
             // Iterates over all Positions in closed Table
             let at_max = slice_depth == S::MAX_SLICES - 1;
-            let mut new_closed = PosTable::new("closed", slice_depth, 8_000_000_000);
-            for chunk in closed.chunks(40_000_000) {
-                let new_chunk: Vec<u64> = chunk.to_vec().into_par_iter().flat_map_iter(|curr_square1| {
+            let mut new_closed = PosTable::new("closed", slice_depth);
+            closed.read_mode();
+            while let Some(n) = closed.read_chunk(&mut buffer) {
+                let new_chunk: Vec<u64> = buffer[..n].par_iter().flat_map_iter(|curr_square1| {
                     // Shows Progress
                     self.pb_closed.inc(1);
     
                     // Opens the next Positions
-                    S::gen_next_positions(curr_square1).into_iter().filter(|&next_square1| {
+                    S::gen_next_positions(*curr_square1).into_iter().filter(|&next_square1| {
                         // Calculates the State for the Position
                         let mut state = S::new(Square1::from_num(next_square1));
     
