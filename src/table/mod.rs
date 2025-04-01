@@ -1,8 +1,9 @@
 pub mod postable;
 
-use std::{fs, str::FromStr, sync::{Arc, RwLock}, time::{Duration, Instant}};
+use std::{fs::{self}, str::FromStr, sync::{Arc, RwLock}, time::{Duration, Instant}};
 
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
+use postable::PosTable;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 
 use crate::{square1::Square1, state::State};
@@ -93,6 +94,124 @@ impl<S: State + Sync> SliceCountTable<S> {
             // Increases the Slice Depth
             slice_depth += 1;
         }
+
+        // Fills rest of the Table
+        if slice_depth == S::MAX_SLICES && !self.table_is_full() {
+            // Shows Progress
+            self.pb_table.set_message("Filling rest");
+            self.clear_pb_closed(S::SIZE as u64 - self.pb_table.position(), slice_depth);
+
+            // Iterates Table
+            let mut table = shared_table.write().unwrap();
+            table.par_iter_mut().for_each(|table_value| {
+                // Finds empty entries
+                let mut changed: u64 = 0;
+                let left = {
+                    let read = *table_value >> 4;
+                    if read == 15 {
+                        changed += 1;
+                        S::MAX_SLICES
+                    } else {
+                        read
+                    }
+                };
+                let right = {
+                    let read = *table_value & 15;
+                    if read == 15 {
+                        changed += 1;
+                        S::MAX_SLICES
+                    } else {
+                        read
+                    }
+                };
+                // Fills empty entries
+                if changed > 0 {
+                    *table_value = (left << 4) + right;
+                }
+
+                // Shows progress
+                self.pb_table.inc(changed);
+                self.pb_closed.inc(changed);
+            });
+        }
+
+        // Finishes Time measurement
+        let elapsed = now.elapsed();
+        // Completes Progress
+        self.pb_table.finish();
+        self.pb_closed.finish();
+        println!("Finished generating Table in {}", format_duration(elapsed));
+
+        // Saves Table to file
+        println!("Saving Table to file");
+        {
+            let table = shared_table.read().unwrap();
+            let _ = fs::create_dir("slice_count_tables");
+            fs::write(Self::get_file_name(), table.clone()).expect("Saving Table failed!");
+        }
+    }
+
+    pub fn generate_compact(&self) {
+        // Starts time measurement
+        let now = Instant::now();
+
+        // Creates empty Slice Count Table
+        let shared_table: Arc<RwLock<Vec<u8>>> = Arc::new(RwLock::new(vec![255 as u8; (S::SIZE + 1) / 2]));
+
+        // Creates empty closed Table
+        let mut closed = PosTable::new("closed", 0, 8_000_000_000);
+
+        // Fills in the solved State and adds first closed Position
+        let solved = Square1::solved();
+        closed.write_chunk(&[solved.get_num()]);
+
+        let state = S::new(solved);
+        let _ = Self::write_shared(&shared_table, state.get_index(), 0);
+        self.pb_table.inc(1);
+
+        // Starts looping over the Slice Depths
+        let mut slice_depth = 1;
+        while !closed.is_empty() && !self.table_is_full() {
+            // Shows Progress
+            self.clear_pb_closed(closed.len() as u64, slice_depth);
+
+            // Iterates over all Positions in closed Table
+            let at_max = slice_depth == S::MAX_SLICES - 1;
+            let mut new_closed = PosTable::new("closed", slice_depth, 8_000_000_000);
+            for chunk in closed.chunks(40_000_000) {
+                let new_chunk: Vec<u64> = chunk.to_vec().into_par_iter().flat_map_iter(|curr_square1| {
+                    // Shows Progress
+                    self.pb_closed.inc(1);
+    
+                    // Opens the next Positions
+                    S::gen_next_positions(curr_square1).into_iter().filter(|&next_square1| {
+                        // Calculates the State for the Position
+                        let mut state = S::new(Square1::from_num(next_square1));
+    
+                        // Tries to write State to Table
+                        match Self::write_shared(&shared_table, state.get_index(), slice_depth) {
+                            Ok(_) => {
+                                // On write, also write symmetric Indecies
+                                let inc = 1 + state.get_symmetric_indecies().into_iter().filter(|&sym_index| {
+                                    Self::write_shared(&shared_table, sym_index, slice_depth) == Ok(())
+                                }).count();
+                                // Increase Progressbar
+                                self.pb_table.inc(inc as u64);
+                                !at_max
+                            }
+                            Err(_) => false
+                        }
+                    })
+                }).collect();
+                new_closed.write_chunk(&new_chunk);
+            }
+            closed.clear_file();
+            closed = new_closed;
+            // Increases the Slice Depth
+            slice_depth += 1;
+        }
+
+        closed.clear_file();
 
         // Fills rest of the Table
         if slice_depth == S::MAX_SLICES && !self.table_is_full() {

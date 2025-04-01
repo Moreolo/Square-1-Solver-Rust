@@ -9,15 +9,39 @@ struct Cli {
     table: String,
     /// Disables Progress Output
     #[clap(long, short, action)]
-    quiet: bool
+    quiet: bool,
+    /// Uses less memory, but takes longer
+    #[clap(long, short, action)]
+    compact: bool
 }
 
 fn main() {
     let args = Cli::parse();
     match args.table.as_str() {
-        "cs" => {SliceCountTable::<StateCS>::new(!args.quiet).generate();}
-        "sqsq" => {SliceCountTable::<StateSqSq>::new(!args.quiet).generate();}
-        "all" => {SliceCountTable::<StateAll>::new(!args.quiet).generate();}
+        "cs" => {
+            let table = SliceCountTable::<StateCS>::new(!args.quiet);
+            if args.compact {
+                table.generate_compact();
+            } else {
+                table.generate();
+            }
+        }
+        "sqsq" => {
+            let table = SliceCountTable::<StateSqSq>::new(!args.quiet);
+            if args.compact {
+                table.generate_compact();
+            } else {
+                table.generate();
+            }
+        }
+        "all" => {
+            let table = SliceCountTable::<StateAll>::new(!args.quiet);
+            if args.compact {
+                table.generate_compact();
+            } else {
+                table.generate();
+            }
+        }
         _ => {}
     }
 }
