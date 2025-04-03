@@ -10,9 +10,9 @@ struct Cli {
     /// Disables Progress Output
     #[clap(long, short, action)]
     quiet: bool,
-    /// Uses less memory, but takes longer
+    /// Uses less memory by using files
     #[clap(long, short, action)]
-    compact: bool
+    limram: bool
 }
 
 fn main() {
@@ -20,7 +20,7 @@ fn main() {
     match args.table.as_str() {
         "cs" => {
             let table = SliceCountTable::<StateCS>::new(!args.quiet);
-            if args.compact {
+            if args.limram {
                 table.generate_compact();
             } else {
                 table.generate();
@@ -28,7 +28,7 @@ fn main() {
         }
         "sqsq" => {
             let table = SliceCountTable::<StateSqSq>::new(!args.quiet);
-            if args.compact {
+            if args.limram {
                 table.generate_compact();
             } else {
                 table.generate();
@@ -36,7 +36,7 @@ fn main() {
         }
         "all" => {
             let table = SliceCountTable::<StateAll>::new(!args.quiet);
-            if args.compact {
+            if args.limram {
                 table.generate_compact();
             } else {
                 table.generate();

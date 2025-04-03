@@ -4,7 +4,7 @@ use std::{fs::{self}, str::FromStr, sync::{Arc, RwLock}, time::{Duration, Instan
 
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
 use postable::PosTable;
-use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 
 use crate::{square1::Square1, state::State};
 
@@ -160,7 +160,6 @@ impl<S: State + Sync> SliceCountTable<S> {
 
         // Creates empty closed Table
         let mut closed = PosTable::new("closed", 0);
-        let mut buffer = vec![0; 5_000_000];
 
         // Fills in the solved State and adds first closed Position
         let solved = Square1::solved();
@@ -179,9 +178,9 @@ impl<S: State + Sync> SliceCountTable<S> {
             // Iterates over all Positions in closed Table
             let at_max = slice_depth == S::MAX_SLICES - 1;
             let mut new_closed = PosTable::new("closed", slice_depth);
-            closed.read_mode();
-            while let Some(n) = closed.read_chunk(&mut buffer) {
-                let new_chunk: Vec<u64> = buffer[..n].par_iter().flat_map_iter(|curr_square1| {
+            closed.start_read();
+            while let Some(chunk) = closed.read_chunk() {
+                let new_chunk: Vec<u64> = chunk.into_par_iter().flat_map_iter(|curr_square1| {
                     // Shows Progress
                     self.pb_closed.inc(1);
     
@@ -207,13 +206,13 @@ impl<S: State + Sync> SliceCountTable<S> {
                 }).collect();
                 new_closed.write_chunk(&new_chunk);
             }
-            closed.clear_file();
+            closed.finish_read();
             closed = new_closed;
             // Increases the Slice Depth
             slice_depth += 1;
         }
 
-        closed.clear_file();
+        closed.finish_read();
 
         // Fills rest of the Table
         if slice_depth == S::MAX_SLICES && !self.table_is_full() {

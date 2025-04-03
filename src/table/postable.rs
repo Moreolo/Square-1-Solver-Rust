@@ -1,15 +1,13 @@
-
-// chunk read
-
-// chunk write
-
 use std::{fs::{self, File, OpenOptions}, io::{Read, Seek, Write}, path::PathBuf};
-use bytemuck::{cast_slice, cast_slice_mut};
+use bytemuck::cast_slice;
+
+const BUFFER_SIZE: usize = 100_000_000;
 
 pub struct PosTable {
     index: usize,
     path: PathBuf,
-    file: File
+    file: File,
+    buffer: Vec<u8>
 }
 
 impl PosTable {
@@ -21,7 +19,8 @@ impl PosTable {
         Self {
             index: 0,
             path,
-            file
+            file,
+            buffer: vec![]
         }
     }
 
@@ -33,18 +32,27 @@ impl PosTable {
         self.index
     }
 
-    pub(super) fn read_mode(&mut self) {
+    pub(super) fn start_read(&mut self) {
         self.file.seek(std::io::SeekFrom::Start(0)).expect("Failed to switch to read mode");
+        self.buffer = vec![0; BUFFER_SIZE]
     }
 
-    pub(super) fn clear_file(&mut self) {
+    pub(super) fn finish_read(&mut self) {
+        self.buffer.clear();
         let _ = fs::remove_file(&self.path);
     }
 
-    pub(super) fn read_chunk(&mut self, buffer: &mut [u64]) -> Option<usize> {
-        match self.file.read(cast_slice_mut(buffer)).expect("Failed to read chunk from file") {
-            0 => None,
-            n => Some(n / 8)
+    pub(super) fn read_chunk(&mut self) -> Option<&[u64]> {
+        let mut bytes_read = 0;
+        loop {
+            match self.file.read(&mut self.buffer[bytes_read..]).expect("Failed to read chunk from file") {
+                0 => if bytes_read == 0 {
+                    return None;
+                } else {
+                    return Some(cast_slice(&self.buffer[..bytes_read]));
+                },
+                n => bytes_read += n
+            }
         }
     }
 
