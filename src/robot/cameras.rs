@@ -4,7 +4,11 @@
 // The cameras supply functions to get shape and color information about specified spots
 // The cameras supply a function to control the lights
 
-enum Show {
+use image::ImageReader;
+
+use super::pictureset::PictureSet;
+
+pub(crate) enum Show {
     Off,
     Startup,
     Normal,
@@ -12,25 +16,7 @@ enum Show {
     Error
 }
 
-enum Shape {
-    CornerStart,
-    Edge,
-    CornerEnd
-}
-
-enum UDColor {
-    Black,
-    White
-}
-
-enum SideColor {
-    Red,
-    Blue,
-    Orange,
-    Green
-}
-
-pub(crate) struct Cameras {
+pub struct Cameras {
 
 }
 
@@ -40,26 +26,25 @@ impl Cameras {
     }
 
     pub(crate) fn show(show: Show) {
-
+        // TODO: leds
     }
 
     pub(crate) fn blink(show: Show) {
-
+        // TODO: leds
     }
 
-    pub(crate) fn capture() {
-
-    }
-
-    pub(crate) fn get_shape(id: u8) -> Option<Shape> {
-        None
-    }
-
-    pub(crate) fn get_udcolor(id: u8) -> Option<UDColor> {
-        None
-    }
-
-    pub(crate) fn get_sidecolor(id: u8) -> Option<SideColor> {
-        None
+    pub fn capture() -> PictureSet {
+        // TODO: replace fake with real
+        let image_left = ImageReader::open("right_0.jpg")
+            .expect("failed to load image")
+            .decode()
+            .expect("failed to decode image")
+            .into();
+        let image_right = ImageReader::open("right_1.jpg")
+            .expect("failed to load image")
+            .decode()
+            .expect("failed to decode image")
+            .into();
+        PictureSet::new(image_left, image_right)
     }
 }
