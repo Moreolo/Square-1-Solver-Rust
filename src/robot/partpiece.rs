@@ -63,6 +63,36 @@ impl Display for PartPiece {
 }
 
 impl PartPiece {
+
+    pub fn get_adj(&self, left: bool) -> Option<Self> {
+        let swap = (match self.shape {
+            Shape::CornerStart => true,
+            Shape::Edge => return None,
+            Shape::CornerEnd => false
+        } == match self.udcolor {
+            UDColor::Black => true,
+            UDColor::White => false
+        }) == left;
+        let adj_sidecolor = match self.sidecolor {
+            SideColor::Red => if swap {SideColor::Blue} else {SideColor::Green},
+            SideColor::Blue => if swap {SideColor::Orange} else {SideColor::Red},
+            SideColor::Orange => if swap {SideColor::Green} else {SideColor::Blue},
+            SideColor::Green => if swap {SideColor::Red} else {SideColor::Orange},
+        };
+        Some(PartPiece {
+            shape: match self.shape {
+                Shape::CornerStart => Shape::CornerEnd,
+                Shape::Edge => return None,
+                Shape::CornerEnd => Shape::CornerStart,
+            },
+            udcolor: match self.udcolor {
+                UDColor::Black => UDColor::Black,
+                UDColor::White => UDColor::White,
+            },
+            sidecolor: adj_sidecolor
+        })
+    }
+
     pub fn get_id(&self, left: bool) -> Option<u8> {
         match self.shape {
             Shape::CornerStart => {

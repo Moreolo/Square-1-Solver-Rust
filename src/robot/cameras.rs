@@ -22,15 +22,17 @@ pub struct Cameras {
 
 impl Cameras {
     pub(crate) fn new() -> Self {
-        Self {  }
+        unimplemented!()
     }
 
     pub(crate) fn show(show: Show) {
         // TODO: leds
+        unimplemented!()
     }
 
     pub(crate) fn blink(show: Show) {
         // TODO: leds
+        unimplemented!()
     }
 
     pub fn capture() -> PictureSet {

@@ -13,12 +13,12 @@ const LINE_DIFF: [i32; 6] = [-15, 0, 16, 24, 40, 55];
 
 const AREAS: [(u32, u32, u32, u32); 10] = [
     // left
-    (100, 200, 20, 20),
-    (90, 170, 20, 20),
-    (80, 140, 20, 20),
-    (100, 110, 20, 20),
+    (180, 530, 100, 60),
+    (150, 320, 80, 100),
+    (80, 140, 80, 150),
+    (20, 50, 50, 50),
     // right
-    (180, 510, 100, 80),
+    (180, 530, 100, 60),
     (150, 320, 80, 100),
     (80, 140, 80, 150),
     (20, 50, 50, 50),
@@ -29,22 +29,22 @@ const AREAS: [(u32, u32, u32, u32); 10] = [
 
 const SPOTS: [(u32, u32); 17] = [
     // left ud
-    (100, 200),
-    (90, 170),
-    (80, 140),
-    (100, 110),
+    (195, 530),
+    (150, 390),
+    (100, 250),
+    (40, 150),
     // left side
-    (100, 200),
-    (90, 170),
-    (80, 140),
-    (70, 110),
+    (320, 520),
+    (280, 360),
+    (200, 180),
+    (100, 60),
     // right ud
-    (170, 500),
+    (195, 530),
     (150, 390),
     (100, 250),
     (40, 150),
     // right side
-    (320, 530),
+    (320, 520),
     (280, 360),
     (200, 180),
     (100, 60),
@@ -83,24 +83,51 @@ impl PictureSet {
     }
 
     pub fn get_partpiece(&self, left: bool, id: usize) -> Option<PartPiece> {
+        if id > 3 {
+            panic!("id too large")
+        }
+        let left_text = if left {"left"} else {"right"};
         if let Some(shape) = self.get_shape(left, id) {
-            Some(PartPiece {
+            let partpiece = PartPiece {
                 shape,
                 udcolor: self.get_udcolor(left, id),
                 sidecolor: self.get_sidecolor(left, id)
-            })
+            };
+            println!("Piece at {}-{} : {}", left_text, id, partpiece);
+            Some(partpiece)
         } else {
+            println!("Piece at {}-{} : None", left_text, id);
             None
         }
     }
 
-    fn get_shape(&self, left: bool, id: usize) -> Option<Shape> {
-        if id > 3 {
-            panic!("id too large")
-        }
+    // returns the configuration of the slice
+    // format: (thumb towards cam, slice solved, small red top)
+    pub fn get_slice_config(&self) -> (bool, bool, bool) {
+        let thumb_to_cam = self.get_lines(false, 4).iter().fold(false, | acc, deg | {
+            // TODO : figure out correct values to check
+            acc
+        });
+        let slice_solved = thumb_to_cam == self.get_lines(false, 5).iter().fold(false, | acc, deg | {
+            // TODO : figure out correct values to check
+            acc
+        });
+        let red_top = match self.get_sidecolor(false, 4) {
+            SideColor::Red => !thumb_to_cam,
+            _ => thumb_to_cam
+        };
+        println!("Thumb to cam: {}", thumb_to_cam);
+        println!("Slice solved: {}", slice_solved);
+        println!("Red top: {}", red_top);
+        (thumb_to_cam, slice_solved, red_top)
+    }
+
+    fn get_lines(&self, left: bool, id: usize) -> Vec<i32> {
+        let left_text = if left {"left"} else {"right"};
+        print!("Lines off {}-{} ", left_text, id);
         // process area
         let (edge_image, (x, y, width, height)) = if left {
-            (&self.image_edges_right, AREAS[id])
+            (&self.image_edges_left, AREAS[id])
         } else {
             (&self.image_edges_right, AREAS[id+4])
         };
@@ -111,37 +138,45 @@ impl PictureSet {
             vote_threshold: 40,
             suppression_radius: 6
         };
-        let lines = detect_lines(&cropped_image, options);
-        for line in lines {
+        let lines = detect_lines(&cropped_image, options).iter().map(| line | {
             let deg = if line.angle_in_degrees > 90 {
-                if left {
-                line.angle_in_degrees as i32 - 180
+                if false {// TODO : uncomment left {
+                    line.angle_in_degrees as i32 - 180
                 } else {
                     180 - (line.angle_in_degrees as i32)
                 }
             } else {
-                if left {
-                line.angle_in_degrees as i32
+                if false { // TODO : uncomment left {
+                    line.angle_in_degrees as i32
                 } else {
                     -(line.angle_in_degrees as i32)
                 }
             };
-            println!("{}", deg);
-            let deg_class = arg_min(LINE_DIFF.iter().map(|diff| (deg - diff).abs()).collect());
-            match deg_class as i32 - id as i32 {
-                0 => if id != 0 {return Some(Shape::CornerStart)}
-                1 => return Some(Shape::Edge),
-                2 => if id != 3 {return Some(Shape::CornerEnd)}
-                _ => {}
+            print!(": {} ", deg);
+            deg
+        }).collect();
+        println!();
+        lines
+    }
+
+    fn get_shape(&self, left: bool, id: usize) -> Option<Shape> {
+        self.get_lines(left, id).iter().fold( None, | acc, deg | {
+            match acc {
+                Some(shape) => Some(shape),
+                None => {
+                    let deg_class = arg_min(LINE_DIFF.iter().map(|diff| (deg - diff).abs()).collect());
+                    match deg_class as i32 - id as i32 {
+                        0 => if id != 0 {return Some(Shape::CornerStart)} else {None},
+                        1 => return Some(Shape::Edge),
+                        2 => if id != 3 {return Some(Shape::CornerEnd)} else {None},
+                        _ => None
+                    }
+                }
             }
-        }
-        None
+        })
     }
 
     fn get_udcolor(&self, left: bool, id: usize) -> UDColor {
-        if id > 3 {
-            panic!("id too large")
-        }
         // process spot
         let (val_image, (x, y)) = if left {
             (val_channel(&self.image_hsv_left), SPOTS[id])
@@ -156,6 +191,8 @@ impl PictureSet {
             RADIUS * 2 + 1).to_image().to_vec();
         // get median of cropped image
         let median_val = median(cropped_image);
+        let left_text = if left {"left"} else {"right"};
+        println!("Value of {}-{} : {}", left_text, id, median_val);
         // classify median value
         if median_val < 70 {
             UDColor::Black
@@ -165,9 +202,6 @@ impl PictureSet {
     }
 
     fn get_sidecolor(&self, left: bool, id: usize) -> SideColor {
-        if id > 3 {
-            panic!("id too large")
-        }
         // process spot
         let (hue_image, (x, y)) = if left {
             (hue_channel(&self.image_hsv_left), SPOTS[id+4])
@@ -182,6 +216,8 @@ impl PictureSet {
             (RADIUS*2+1) as u32).to_image().to_vec();
         // get median of cropped image
         let median_hue = median(cropped_image);
+        let left_text = if left {"left"} else {"right"};
+        println!("Hue of {}-{} : {}", left_text, id, median_hue);
         // classify median hue
         if median_hue < 25 {
             SideColor::Red
