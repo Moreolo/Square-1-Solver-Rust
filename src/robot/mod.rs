@@ -4,3 +4,4 @@ pub mod pictureset;
 pub mod partpiece;
 pub(crate) mod builder;
 pub(crate) mod motors;
+pub(crate) mod picconfig;

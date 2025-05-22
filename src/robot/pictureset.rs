@@ -1,56 +1,13 @@
 use image::{imageops::crop_imm, Luma, Rgb};
 use imageproc::{definitions::Image, drawing::{draw_filled_circle_mut, draw_hollow_rect_mut}, edges::canny, hough::{detect_lines, LineDetectionOptions}, map::{blue_channel, map_colors, red_channel}, rect::Rect};
 
-use super::partpiece::{PartPiece, Shape, SideColor, UDColor};
+use super::{partpiece::{PartPiece, Shape, SideColor, UDColor}, picconfig::PICCONFIG};
 
 const GREEN: Rgb<u8> = Rgb([0, 255, 0]);
 const YELLOW: Rgb<u8> = Rgb([255, 255, 0]);
 const WHITE: Rgb<u8> = Rgb([255, 255, 255]);
 const BLACK: Rgb<u8> = Rgb([0, 0, 0]);
 const RADIUS: u32 = 6;
-
-const LINE_DIFF: [i32; 6] = [-15, 0, 16, 24, 40, 55];
-
-const AREAS: [(u32, u32, u32, u32); 10] = [
-    // left
-    (180, 530, 100, 60),
-    (150, 320, 80, 100),
-    (80, 140, 80, 150),
-    (20, 50, 50, 50),
-    // right
-    (180, 530, 100, 60),
-    (150, 320, 80, 100),
-    (80, 140, 80, 150),
-    (20, 50, 50, 50),
-    // extra
-    (380, 0, 80, 150),
-    (520, 470, 160, 100)
-];
-
-const SPOTS: [(u32, u32); 17] = [
-    // left ud
-    (195, 530),
-    (150, 390),
-    (100, 250),
-    (40, 150),
-    // left side
-    (320, 520),
-    (280, 360),
-    (200, 180),
-    (100, 60),
-    // right ud
-    (195, 530),
-    (150, 390),
-    (100, 250),
-    (40, 150),
-    // right side
-    (320, 520),
-    (280, 360),
-    (200, 180),
-    (100, 60),
-    // extra
-    (470, 350)
-];
 
 pub struct PictureSet {
     image_rgb_left: Image<Rgb<u8>>,
@@ -127,9 +84,9 @@ impl PictureSet {
         print!("Lines off {}-{} ", left_text, id);
         // process area
         let (edge_image, (x, y, width, height)) = if left {
-            (&self.image_edges_left, AREAS[id])
+            (&self.image_edges_left, PICCONFIG.get_area(id))
         } else {
-            (&self.image_edges_right, AREAS[id+4])
+            (&self.image_edges_right, PICCONFIG.get_area(id + 4))
         };
         // crop image
         let cropped_image = crop_imm(edge_image, x, y, width, height).to_image();
@@ -164,7 +121,7 @@ impl PictureSet {
             match acc {
                 Some(shape) => Some(shape),
                 None => {
-                    let deg_class = arg_min(LINE_DIFF.iter().map(|diff| (deg - diff).abs()).collect());
+                    let deg_class = arg_min(PICCONFIG.get_line_classes().iter().map(|diff| (deg - diff).abs()).collect());
                     match deg_class as i32 - id as i32 {
                         0 => if id != 0 {return Some(Shape::CornerStart)} else {None},
                         1 => return Some(Shape::Edge),
@@ -179,9 +136,9 @@ impl PictureSet {
     fn get_udcolor(&self, left: bool, id: usize) -> UDColor {
         // process spot
         let (val_image, (x, y)) = if left {
-            (val_channel(&self.image_hsv_left), SPOTS[id])
+            (val_channel(&self.image_hsv_left), PICCONFIG.get_spot(id))
         } else {
-            (val_channel(&self.image_hsv_right), SPOTS[id+8])
+            (val_channel(&self.image_hsv_right), PICCONFIG.get_spot(id + 8))
         };
         // crop image
         let cropped_image = crop_imm(&val_image,
@@ -204,9 +161,9 @@ impl PictureSet {
     fn get_sidecolor(&self, left: bool, id: usize) -> SideColor {
         // process spot
         let (hue_image, (x, y)) = if left {
-            (hue_channel(&self.image_hsv_left), SPOTS[id+4])
+            (hue_channel(&self.image_hsv_left), PICCONFIG.get_spot(id + 4))
         } else {
-            (hue_channel(&self.image_hsv_right), SPOTS[id+12])
+            (hue_channel(&self.image_hsv_right), PICCONFIG.get_spot(id + 12))
         };
         // crop image
         let cropped_image = crop_imm(&hue_image,
@@ -236,32 +193,36 @@ impl PictureSet {
         let mut config_image_edges_left = edg2rgb(&self.image_edges_left);
         let mut config_image_edges_right = edg2rgb(&self.image_edges_right);
 
-        for (x, y, width, height) in &AREAS[..4] {
-            draw_hollow_rect_mut(&mut config_image_edges_left, Rect::at(*x as i32, *y as i32).of_size(*width, *height), GREEN);
+        for i in 0..10 {
+            let (x, y, width, height) = PICCONFIG.get_area(i);
+            if i < 4 {
+                draw_hollow_rect_mut(&mut config_image_edges_left, Rect::at(x as i32, y as i32).of_size(width, height), GREEN);
+            } else {
+                draw_hollow_rect_mut(&mut config_image_edges_right, Rect::at(x as i32, y as i32).of_size(width, height), GREEN);
+            }
         }
-        for (x, y, width, height) in &AREAS[4..] {
-            draw_hollow_rect_mut(&mut config_image_edges_right, Rect::at(*x as i32, *y as i32).of_size(*width, *height), GREEN);
+        for i in 0..17 {
+            let (x, y) = PICCONFIG.get_spot(i);
+            if i < 8 {
+                draw_filled_circle_mut(&mut config_image_rgb_left, (x as i32, y as i32), RADIUS as i32, BLACK);
+                if i < 4 {
+                    draw_filled_circle_mut(&mut config_image_rgb_left, (x as i32, y as i32), (RADIUS-2) as i32, WHITE);
+                } else {
+                    draw_filled_circle_mut(&mut config_image_rgb_left, (x as i32, y as i32), (RADIUS-2) as i32, YELLOW);
+                }
+            } else {
+                draw_filled_circle_mut(&mut config_image_rgb_right, (x as i32, y as i32), RADIUS as i32, BLACK);
+                if i < 12 {
+                    draw_filled_circle_mut(&mut config_image_rgb_right, (x as i32, y as i32), (RADIUS-2) as i32, WHITE);
+                } else {
+                    draw_filled_circle_mut(&mut config_image_rgb_right, (x as i32, y as i32), (RADIUS-2) as i32, YELLOW);
+                }
+            }
         }
-        for (x, y) in &SPOTS[..4] {
-            draw_filled_circle_mut(&mut config_image_rgb_left, (*x as i32, *y as i32), RADIUS as i32, BLACK);
-            draw_filled_circle_mut(&mut config_image_rgb_left, (*x as i32, *y as i32), (RADIUS-2) as i32, WHITE);
-        }
-        for (x, y) in &SPOTS[4..8] {
-            draw_filled_circle_mut(&mut config_image_rgb_left, (*x as i32, *y as i32), RADIUS as i32, BLACK);
-            draw_filled_circle_mut(&mut config_image_rgb_left, (*x as i32, *y as i32), (RADIUS-2) as i32, YELLOW);
-        }
-        for (x, y) in &SPOTS[8..12] {
-            draw_filled_circle_mut(&mut config_image_rgb_right, (*x as i32, *y as i32), RADIUS as i32, BLACK);
-            draw_filled_circle_mut(&mut config_image_rgb_right, (*x as i32, *y as i32), (RADIUS-2) as i32, WHITE);
-        }
-        for (x, y) in &SPOTS[12..] {
-            draw_filled_circle_mut(&mut config_image_rgb_right, (*x as i32, *y as i32), RADIUS as i32, BLACK);
-            draw_filled_circle_mut(&mut config_image_rgb_right, (*x as i32, *y as i32), (RADIUS-2) as i32, YELLOW);
-        }
-        config_image_rgb_left.save("left_spots.jpg").expect("failed to save image");
-        config_image_rgb_right.save("right_spots.jpg").expect("failed to save image");
-        config_image_edges_left.save("left_edges.jpg").expect("failed to save image");
-        config_image_edges_right.save("right_edges.jpg").expect("failed to save image");
+        config_image_rgb_left.save("left_spots.jpg").expect("Failed to save image");
+        config_image_rgb_right.save("right_spots.jpg").expect("Failed to save image");
+        config_image_edges_left.save("left_edges.jpg").expect("Failed to save image");
+        config_image_edges_right.save("right_edges.jpg").expect("Failed to save image");
     }
 }
 

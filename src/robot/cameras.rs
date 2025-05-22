@@ -4,6 +4,8 @@
 // The cameras supply functions to get shape and color information about specified spots
 // The cameras supply a function to control the lights
 
+use std::{thread::sleep, time::Duration};
+
 use image::ImageReader;
 
 use super::pictureset::PictureSet;
@@ -25,14 +27,18 @@ impl Cameras {
         unimplemented!()
     }
 
-    pub(crate) fn show(show: Show) {
+    pub(crate) fn show(show: &Show) {
         // TODO: leds
         unimplemented!()
     }
 
-    pub(crate) fn blink(show: Show) {
-        // TODO: leds
-        unimplemented!()
+    pub(crate) fn blink(show: &Show) {
+        for _ in 0..3 {
+            Cameras::show(&show);
+            sleep(Duration::from_secs(1));
+            Cameras::show(&Show::Off);
+            sleep(Duration::from_secs(1));
+        }
     }
 
     pub fn capture() -> PictureSet {

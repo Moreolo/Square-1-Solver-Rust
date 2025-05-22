@@ -8,8 +8,8 @@ use crate::square1::Square1;
 
 use super::{cameras::Cameras, partpiece::{PartPiece, Shape}, pictureset::PictureSet};
 
-pub fn detect_square1() -> Option<Square1> {
-    let (left_layer, right_layer) = match build_partpiece_layers() {
+pub fn detect_square1() -> Option<(Square1, (bool, bool, bool))> {
+    let (left_layer, right_layer, config) = match build_partpiece_layers() {
         Some(x) => x,
         None => return None
     };
@@ -28,18 +28,23 @@ pub fn detect_square1() -> Option<Square1> {
         }
     }
     println!();
-    convert_partpieces(left_layer, right_layer)
+    match convert_partpieces(left_layer, right_layer) {
+        Some(square1) => Some((square1, config)),
+        None => None
+    }
 }
 
-pub fn build_partpiece_layers() -> Option<([Option<PartPiece>; 12], [Option<PartPiece>; 12])> {
+pub fn build_partpiece_layers() -> Option<([Option<PartPiece>; 12], [Option<PartPiece>; 12], (bool, bool, bool))> {
     let mut left_layer = [const { None }; 12];
     let mut right_layer = [const { None }; 12];
     // Take multiple pictures
+    let pictures = Cameras::capture();
+    let config = pictures.get_slice_config();
     for pic_num in 0..3 {
         if pic_num != 0 {
             // TODO : move layers
+            let pictures = Cameras::capture();
         }
-        let pictures = Cameras::capture();
 
         // Process every spot
         if let Err(spot) = fill_layer(&mut left_layer, &pictures, pic_num, true) {
@@ -54,7 +59,7 @@ pub fn build_partpiece_layers() -> Option<([Option<PartPiece>; 12], [Option<Part
     // Correct for offset of layers relative to real turn
     left_layer.rotate_right(2);
     right_layer.rotate_left(4);
-    Some((left_layer, right_layer))
+    Some((left_layer, right_layer, config))
 }
 
 fn fill_layer(layer: &mut [Option<PartPiece>; 12], pictures: &PictureSet, pic_num: usize, left: bool) -> Result<(), usize> {
