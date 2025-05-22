@@ -12,7 +12,7 @@ use super::pictureset::PictureSet;
 
 pub(crate) enum Show {
     Off,
-    Startup,
+    Init,
     Normal,
     Fast,
     Error
@@ -24,6 +24,16 @@ pub struct Cameras {
 
 impl Cameras {
     pub(crate) fn new() -> Self {
+        unimplemented!()
+    }
+
+    pub(crate) fn start() {
+        println!("Starting Cameras");
+        unimplemented!()
+    }
+
+    pub(crate) fn stop() {
+        println!("Stopping Cameras");
         unimplemented!()
     }
 
@@ -42,6 +52,7 @@ impl Cameras {
     }
 
     pub fn capture() -> PictureSet {
+        println!("Capturing Pictures");
         // TODO: replace fake with real
         let image_left = ImageReader::open("right_0.jpg")
             .expect("failed to load image")
