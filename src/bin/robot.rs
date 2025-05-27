@@ -12,7 +12,7 @@ fn main() {
     let contr_esc = Arc::clone(&contr_base);
     inputbot::KeybdKey::EscapeKey.bind(move || {
         println!("Escape pressed");
-        if let Ok(contr) = contr_esc.try_lock() {
+        if let Ok(mut contr) = contr_esc.try_lock() {
             contr.quit();
             exit(0)
         }
@@ -22,7 +22,7 @@ fn main() {
     inputbot::KeybdKey::EKey.bind(move || {
         println!("e pressed");
         if let Ok(mut contr) = contr_e.try_lock() {
-            contr.detect();
+            contr.detect(true);
         }
     });
 
@@ -40,7 +40,7 @@ fn main() {
     inputbot::KeybdKey::BackspaceKey.block_bind(move || {
         println!("Backspace pressed");
         match contr_backspace.try_lock() {
-            Ok(mut contr) => contr.switch_fast_mode(),
+            Ok(mut contr) => contr.toggle_fast_mode(),
             Err(_) => *stop_backspace.lock().unwrap() = true
         };
     });
