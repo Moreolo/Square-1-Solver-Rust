@@ -28,7 +28,7 @@ pub fn detect_square1() -> Option<(Square1, (bool, bool, bool))> {
         }
     }
     println!();
-    match convert_partpieces(left_layer, right_layer, config.2) {
+    match convert_partpieces(left_layer, right_layer, config.0, config.2) {
         Some(square1) => Some((square1, config)),
         None => None
     }
@@ -99,7 +99,7 @@ fn fill_layer(layer: &mut [Option<PartPiece>; 12], pictures: &PictureSet, pic_nu
     Ok(())
 }
 
-fn convert_partpieces(left_layer: [Option<PartPiece>; 12], right_layer: [Option<PartPiece>; 12], red_top: bool) -> Option<Square1> {
+fn convert_partpieces(left_layer: [Option<PartPiece>; 12], right_layer: [Option<PartPiece>; 12], thumb_to_cam: bool, red_top: bool) -> Option<Square1> {
     // Check for undetected partpieces
     let mut cleared_left_layer: Vec<PartPiece> = left_layer.into_iter().filter_map(|piece| piece).collect();
     let mut cleared_right_layer: Vec<PartPiece> = right_layer.into_iter().filter_map(|piece| piece).collect();
@@ -134,6 +134,9 @@ fn convert_partpieces(left_layer: [Option<PartPiece>; 12], right_layer: [Option<
     pieces[..split].clone_from_slice(&left_pieces);
     pieces[split..].clone_from_slice(&right_pieces);
     let mut square1 = Square1::from_arr(pieces);
+    if !thumb_to_cam {
+        square1.flip_layers();
+    }
     if !red_top {
         square1.cycle_colors(&(2, 2));
     }

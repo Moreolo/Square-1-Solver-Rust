@@ -1,30 +1,49 @@
-use std::{process::exit, sync::{Arc, RwLock}, thread::sleep, time::Duration};
+use std::{process::exit, sync::{Arc, Mutex}};
 
+use square_1_solver_rust::robot::controller::Controller;
 
 fn main() {
-    // TODO : put Controller behind lock
-    // In case of lock, don't do function
-    // don't put emergency stop behind lock, give execution function seperate lock, that checks for emergency stop
-    let counter: Arc<RwLock<u8>> = Arc::new(RwLock::new(0));
-    inputbot::KeybdKey::QKey.bind(move || {
-        println!("q pressed");
-        {
-            let num = counter.read().unwrap();
-            println!("{num}");
-        }
-        sleep(Duration::from_secs(5));
-        {
-            let mut num = counter.write().unwrap();
-            *num += 1;
+    let contr_base: Arc<Mutex<Controller>> = Arc::new(Mutex::new(Controller::new()));
+    let stop: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
+    {
+        contr_base.lock().unwrap().init();
+    }
+
+    let contr_esc = Arc::clone(&contr_base);
+    inputbot::KeybdKey::EscapeKey.bind(move || {
+        println!("Escape pressed");
+        if let Ok(contr) = contr_esc.try_lock() {
+            contr.quit();
+            exit(0)
         }
     });
-    inputbot::KeybdKey::BackspaceKey.bind(|| {
+
+    let contr_e = Arc::clone(&contr_base);
+    inputbot::KeybdKey::EKey.bind(move || {
+        println!("e pressed");
+        if let Ok(mut contr) = contr_e.try_lock() {
+            contr.detect();
+        }
+    });
+
+    let contr_enter = Arc::clone(&contr_base);
+    let stop_enter = Arc::clone(&stop);
+    inputbot::KeybdKey::EnterKey.bind(move || {
+        println!("enter pressed");
+        if let Ok(mut contr) = contr_enter.try_lock() {
+            contr.execute(&stop_enter);
+        }
+    });
+
+    let contr_backspace = Arc::clone(&contr_base);
+    let stop_backspace = Arc::clone(&stop);
+    inputbot::KeybdKey::BackspaceKey.block_bind(move || {
         println!("Backspace pressed");
-        exit(0)
+        match contr_backspace.try_lock() {
+            Ok(mut contr) => contr.switch_fast_mode(),
+            Err(_) => *stop_backspace.lock().unwrap() = true
+        };
     });
-    inputbot::KeybdKey::WKey.block_bind(|| {
-        println!("w pressed");
-        sleep(Duration::from_secs(5));
-    });
+
     inputbot::handle_input_events();
 }

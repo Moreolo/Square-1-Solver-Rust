@@ -5,7 +5,7 @@
 // Controller indicates status through lights
 // The Controller is started by a seperate file that also takes numpad inputs
 
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex};
 
 use crate::{solver::{load_table, solve, Solution}, square1::Square1};
 
@@ -16,7 +16,11 @@ pub struct Controller {
 }
 
 impl Controller {
-    pub fn init() {
+    pub fn new() -> Self {
+        Controller { solution: None }
+    }
+
+    pub fn init(&self) {
         println!("Starting Robot");
         Cameras::show(&Show::Init);
         load_table();
@@ -25,56 +29,63 @@ impl Controller {
         Cameras::show(&Show::Normal);
     }
 
-    pub fn detect(&mut self) {
-        if let Some((square1, (thumb_to_cam, bar_solved, _))) = detect_square1() {
+    pub fn switch_fast_mode(&mut self) {
+        unimplemented!()
+        // TODO : send command to motors
+    }
+
+    pub fn detect(&mut self) -> bool {
+        self.solution = if let Some((square1, (thumb_to_cam, bar_solved, _))) = detect_square1() {
             // TODO : setup motors for thumb to cam and for slice direction
             match solve(square1, bar_solved) {
-                Ok(solution) => self.solution = Some(solution),
+                Ok(solution) => Some(solution),
                 Err(_) => {
                     println!("Square-1 invalid");
-                    self.solution = None
+                    None
                 },
             }
         } else {
             println!("Detection failed");
-            Cameras::blink(&Show::Error);
-            self.solution = None
+            None
             // TODO : return to normal state
             // TODO : blink outside of if else statement
+        };
+        match self.solution {
+            Some(_) => true,
+            None => {
+                Cameras::blink(&Show::Error);
+                false
+            }
         }
     }
 
-    pub fn execute(&mut self, stop: Arc<RwLock<bool>>) {
+    pub fn execute(&mut self, stop: &Arc<Mutex<bool>>) {
+        {
+            *stop.lock().unwrap() = false;
+        }
         match &self.solution {
             None => {
-                self.detect();
-                if let None = self.solution {
+                if !self.detect() {
                     return
                 }
             },
             _ => {}
         }
-        match &self.solution {
-            Some(solution) => {
-                // TODO : execute solution
-                if {
-                    !*stop.read().unwrap()
-                } {
+        // TODO : execute solution
+        
+        if {
+            !*stop.lock().unwrap()
+        } {
 
-                } else {
-                    // TODO : stop execution
-                    *stop.write().unwrap() = false;
-                }
-                self.solution = None;
-            }
-            None => {
-                // TODO : blink red
-            }
+        } else {
+            // TODO : stop execution
+            *stop.lock().unwrap() = false;
         }
+        self.solution = None;
         
     }
 
-    pub fn quit() {
+    pub fn quit(&self) {
         println!("Stopping Robot");
         Cameras::stop();
         // TODO : stop motors
