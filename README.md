@@ -6,3 +6,4 @@ Its aim is to make table generation faster compared to the Solver written in Pyt
 For robot dev you also need to install the following packages with apt:
 libudev-dev
 libx11-dev
+libxtst-dev
