@@ -1,7 +1,8 @@
-use square_1_solver_rust::robot::cameras::Cameras;
+use square_1_solver_rust::robot::cameras;
+
 
 fn main() {
-    let pictures = Cameras::capture();
+    let pictures = cameras::capture();
     for left in [true, false] {
         (0..4).for_each(| id | {pictures.get_partpiece(left, id);});
     }

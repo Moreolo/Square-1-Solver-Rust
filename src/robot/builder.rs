@@ -6,10 +6,10 @@
 
 use crate::square1::Square1;
 
-use super::{cameras::Cameras, partpiece::{PartPiece, Shape}, pictureset::PictureSet};
+use super::{cameras::capture, motors::Motors, partpiece::{PartPiece, Shape}, pictureset::PictureSet};
 
-pub fn detect_square1() -> Option<(Square1, (bool, bool, bool))> {
-    let (left_layer, right_layer, config) = match build_partpiece_layers() {
+pub fn detect_square1(motors: &mut Motors, thumb_to_cam: bool, red_top: bool) -> Option<Square1> {
+    let (left_layer, right_layer) = match build_partpiece_layers(motors) {
         Some(x) => x,
         None => return None
     };
@@ -28,22 +28,18 @@ pub fn detect_square1() -> Option<(Square1, (bool, bool, bool))> {
         }
     }
     println!();
-    match convert_partpieces(left_layer, right_layer, config.0, config.2) {
-        Some(square1) => Some((square1, config)),
-        None => None
-    }
+    convert_partpieces(motors, left_layer, right_layer, thumb_to_cam, red_top)
 }
 
-pub fn build_partpiece_layers() -> Option<([Option<PartPiece>; 12], [Option<PartPiece>; 12], (bool, bool, bool))> {
+pub fn build_partpiece_layers(motors: &mut Motors) -> Option<([Option<PartPiece>; 12], [Option<PartPiece>; 12])> {
     let mut left_layer = [const { None }; 12];
     let mut right_layer = [const { None }; 12];
     // Take multiple pictures
-    let pictures = Cameras::capture();
-    let config = pictures.get_slice_config();
+    let mut pictures = capture();
     for pic_num in 0..3 {
         if pic_num != 0 {
-            // TODO : move layers
-            let pictures = Cameras::capture();
+            motors.turn_layers(-4, 4, true);
+            pictures = capture();
         }
 
         // Process every spot
@@ -59,7 +55,7 @@ pub fn build_partpiece_layers() -> Option<([Option<PartPiece>; 12], [Option<Part
     // Correct for offset of layers relative to real turn
     left_layer.rotate_right(2);
     right_layer.rotate_left(4);
-    Some((left_layer, right_layer, config))
+    Some((left_layer, right_layer))
 }
 
 fn fill_layer(layer: &mut [Option<PartPiece>; 12], pictures: &PictureSet, pic_num: usize, left: bool) -> Result<(), usize> {
@@ -99,7 +95,7 @@ fn fill_layer(layer: &mut [Option<PartPiece>; 12], pictures: &PictureSet, pic_nu
     Ok(())
 }
 
-fn convert_partpieces(left_layer: [Option<PartPiece>; 12], right_layer: [Option<PartPiece>; 12], thumb_to_cam: bool, red_top: bool) -> Option<Square1> {
+fn convert_partpieces(motors: &mut Motors, left_layer: [Option<PartPiece>; 12], right_layer: [Option<PartPiece>; 12], thumb_to_cam: bool, red_top: bool) -> Option<Square1> {
     // Check for undetected partpieces
     let mut cleared_left_layer: Vec<PartPiece> = left_layer.into_iter().filter_map(|piece| piece).collect();
     let mut cleared_right_layer: Vec<PartPiece> = right_layer.into_iter().filter_map(|piece| piece).collect();
@@ -110,19 +106,21 @@ fn convert_partpieces(left_layer: [Option<PartPiece>; 12], right_layer: [Option<
     // Get the turn to correct the Layers for sliceable
     let left_turn = get_turn_to_valid(&cleared_left_layer);
     let right_turn = get_turn_to_valid(&cleared_right_layer);
-
-    // TODO : turn motors to correct layers
-    // make sure to flip the sign of one layer
-    if left_turn < 4 {
+    let left_motor_turn = if left_turn < 4 {
         cleared_left_layer.rotate_left(left_turn);
+        left_turn as i8
     } else {
         cleared_left_layer.rotate_left(left_turn + 6);
-    }
-    if right_turn < 4 {
+        left_turn as i8 - 6
+    };
+    let right_motor_turn = if right_turn < 4 {
         cleared_right_layer.rotate_left(right_turn);
+        right_turn as i8
     } else {
         cleared_right_layer.rotate_left(right_turn + 6);
-    }
+        right_turn as i8 - 6
+    };
+    motors.turn_layers(-left_motor_turn, right_motor_turn, true);
 
     // Converts partpieces to ids
     let left_pieces: Vec<u8> = cleared_left_layer.into_iter().filter_map(|partpiece| partpiece.get_id(true)).collect();

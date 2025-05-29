@@ -3,7 +3,7 @@ use std::{process::exit, sync::{Arc, Mutex}};
 use square_1_solver_rust::robot::controller::Controller;
 
 fn main() {
-    let contr_base: Arc<Mutex<Controller>> = Arc::new(Mutex::new(Controller::new()));
+    let contr_base: Arc<Mutex<Controller>> = Arc::new(Mutex::new(Controller::new().expect("Failed to create controller")));
     let stop: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
     {
         contr_base.lock().unwrap().init();

@@ -79,6 +79,12 @@ impl PictureSet {
         (thumb_to_cam, slice_solved, red_top)
     }
 
+    pub fn get_slice_turn(&self, thumb_to_cam: bool, bar_solved: bool) -> i8 {
+        let bot_thumb_to_cam = thumb_to_cam != bar_solved;
+        // TODO : output correct direction and figure out if cube is grabbed
+        unimplemented!()
+    }
+
     fn get_lines(&self, left: bool, id: usize) -> Vec<i32> {
         let left_text = if left {"left"} else {"right"};
         print!("Lines off {}-{} ", left_text, id);
@@ -187,6 +193,7 @@ impl PictureSet {
         }
     }
 
+    // TODO : Calibration points and point adjustment for new robot
     pub fn save_overlay_config(&self) {
         let mut config_image_rgb_left = self.image_rgb_left.clone();
         let mut config_image_rgb_right = self.image_rgb_right.clone();

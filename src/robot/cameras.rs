@@ -4,66 +4,93 @@
 // The cameras supply functions to get shape and color information about specified spots
 // The cameras supply a function to control the lights
 
-use std::{thread::sleep, time::Duration};
+use std::{process::Command, thread::sleep, time::Duration};
 
 use image::ImageReader;
+use ws2818_rgb_led_spi_driver::{adapter_gen::WS28xxAdapter, adapter_spi::WS28xxSpiAdapter, encoding::encode_rgb_slice};
+
+use crate::robot::picconfig::PICCONFIG;
 
 use super::pictureset::PictureSet;
 
-pub(crate) enum Show {
+pub(crate) enum Info {
     Off,
     Init,
     Normal,
     Fast,
-    Error
+    Error,
+    Capture
 }
 
-pub struct Cameras {
-
+pub(crate) fn is_working() -> bool {
+    get_spi_device().is_ok() && raw_capture().is_ok()
 }
 
-impl Cameras {
-    pub(crate) fn new() -> Self {
-        unimplemented!()
-    }
+pub(crate) fn show(info: &Info) {
+    let mut spi_adapter = get_spi_device().unwrap();
+    raw_show(&mut spi_adapter, info);
+}
 
-    pub(crate) fn start() {
-        println!("Starting Cameras");
-        unimplemented!()
-    }
+fn raw_show(spi_adapter: &mut WS28xxSpiAdapter, info: &Info) {
+    let rgb = match info {
+        Info::Off => (0, 0, 0),
+        Info::Init => (64, 32, 0),
+        Info::Normal => (0, 64, 0),
+        Info::Fast => (0, 0, 64),
+        Info::Error => (64, 0, 0),
+        Info::Capture => (255, 255, 255)
+    };
+    let encoded_data = encode_rgb_slice(&[rgb; 24]);
+    spi_adapter.write_encoded_rgb(&encoded_data).expect("Failed to change leds");
+}
 
-    pub(crate) fn stop() {
-        println!("Stopping Cameras");
-        unimplemented!()
-    }
+fn get_spi_device() -> Result<WS28xxSpiAdapter, String> {
+    WS28xxSpiAdapter::new(&PICCONFIG.get_spi_path())
+}
 
-    pub(crate) fn show(show: &Show) {
-        // TODO: leds
-        unimplemented!()
+pub(crate) fn blink(info: &Info) {
+    let mut spi_adapter = get_spi_device().unwrap();
+    for _ in 0..3 {
+        raw_show(&mut spi_adapter, &info);
+        sleep(Duration::from_millis(500));
+        raw_show(&mut spi_adapter, &Info::Off);
+        sleep(Duration::from_millis(500));
     }
+}
 
-    pub(crate) fn blink(show: &Show) {
-        for _ in 0..3 {
-            Cameras::show(&show);
-            sleep(Duration::from_secs(1));
-            Cameras::show(&Show::Off);
-            sleep(Duration::from_secs(1));
-        }
-    }
+pub fn capture() -> PictureSet {
+    println!("Capturing Pictures");
+    let mut spi_adapter = get_spi_device().unwrap();
+    raw_show(&mut spi_adapter, &Info::Capture);
+    raw_capture().unwrap();
+    raw_show(&mut spi_adapter, &Info::Off);
 
-    pub fn capture() -> PictureSet {
-        println!("Capturing Pictures");
-        // TODO: replace fake with real
-        let image_left = ImageReader::open("right_0.jpg")
-            .expect("failed to load image")
-            .decode()
-            .expect("failed to decode image")
-            .into();
-        let image_right = ImageReader::open("right_1.jpg")
-            .expect("failed to load image")
-            .decode()
-            .expect("failed to decode image")
-            .into();
-        PictureSet::new(image_left, image_right)
+    let image_left = ImageReader::open("left.jpg")
+        .expect("failed to load image")
+        .decode()
+        .expect("failed to decode image")
+        .into();
+    let image_right = ImageReader::open("right.jpg")
+        .expect("failed to load image")
+        .decode()
+        .expect("failed to decode image")
+        .into();
+    PictureSet::new(image_left, image_right)
+}
+
+pub(crate) fn raw_capture() -> Result<(), ()> {
+    // TODO : Check if capture actually returns Error in case capture fails
+    for (file, camera) in [("left.jpg", "1"), ("right.jpg", "0")] {
+        if Command::new("rpicam-still")
+            .arg("-n").arg("--immediate")
+            .arg("-o").arg(file)
+            .arg("--gain").arg("1")
+            .arg("--awbgains").arg("1,1")
+            .arg("--shutter").arg("10000")
+            .arg("--width").arg("820")
+            .arg("--height").arg("616")
+            .arg("--camera").arg(camera)
+            .output().is_err() {return Err(())};
     }
+    Ok(())
 }

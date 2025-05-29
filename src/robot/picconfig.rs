@@ -7,6 +7,8 @@ pub(crate) static PICCONFIG: LazyLock<PicConfig> = LazyLock::new(|| PicConfig::f
 
 #[derive(Deserialize)]
 pub(crate) struct PicConfig {
+    spi: u8,
+    usb_port: u8,
     line_classes: [i32; 6],
     spots_left_ud: [(u32, u32); 4],
     spots_left_side: [(u32, u32); 4],
@@ -23,6 +25,14 @@ impl PicConfig {
     pub(crate) fn from_file() -> Self {
         let contents = fs::read_to_string("picconfig.toml").expect("Failed to load picture config file");
         toml::from_str(&contents).expect("Failed to parse picture config file")
+    }
+
+    pub(crate) fn get_spi_path(&self) -> String {
+        format!("/dev/spidev{}.0", self.spi)
+    }
+
+    pub(crate) fn get_usb_path(&self) -> String {
+        format!("/dev/ttyUSB{}", self.usb_port)
     }
 
     pub(crate) fn get_line_classes(&self) -> [i32; 6] {

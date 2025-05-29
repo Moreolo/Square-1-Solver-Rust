@@ -10,52 +10,59 @@ use std::{io::{Read, Write}, time::Duration};
 
 use serialport::{self, TTYPort};
 
+use super::picconfig::PICCONFIG;
+
 pub(crate) struct Motors {
     port: TTYPort,
     running: bool,
-    slice_pos: i8,
+    slice_pos: i8
 }
 
 impl Motors {
-    pub(crate) fn new() -> Self {
-        let port = serialport::new("/dev/ttyUSB0", 9600).timeout(Duration::from_secs(2)).open_native().expect("Failed to open USB port");
-        // TODO : send init to board
-        Self {
-            port,
-            running: false,
-            slice_pos: 0
+    pub(crate) fn new() -> Result<Self, ()> {
+        // TODO : configure serialport
+        if let Ok(port) = serialport::new(PICCONFIG.get_usb_path(), 115200).timeout(Duration::from_secs(1)).open_native() {
+            Ok(Self {
+                port,
+                running: false,
+                slice_pos: 0
+            })
+        } else {
+            println!("Failed to connect to motors");
+            Err(())
         }
+        // TODO : send init to board
+        
     }
 
     pub(crate) fn start(&mut self, slice_pos: Option<i8>) {
         if let Some(new_pos) = slice_pos {
             self.slice_pos = new_pos;
-            // TODO : send new slice pos to board
-            unimplemented!()
-        } else {
-            // TODO : send empty startup to board
-            unimplemented!()
         }
+        let cmd = ser_slice_pos(self.slice_pos);
+        self.send_cmd(0b11110000 + 0b0100 + cmd);
         self.running = true;
     }
 
     pub(crate) fn stop(&mut self) {
-        // TODO : send stop to board
-        unimplemented!();
+        self.send_cmd(0b11110000);
         self.running = false;
     }
 
-    pub(crate) fn toggle_fast_mode(&mut self) {
-        // TODO : send toggle fast mode to board
-        unimplemented!()
+    pub(crate) fn slow_mode(&mut self) {
+        self.send_cmd(0b11110000 + 0b1100);
+    }
+
+    pub(crate) fn fast_mode(&mut self) {
+        self.send_cmd(0b11110000 + 0b1101);
     }
 
     pub(crate) fn turn_slice(&mut self) {
         if self.slice_pos != 0 {
             self.slice_pos *= -1;
         }
-        // TODO : send slice turn to board
-        unimplemented!()
+        let cmd = ser_slice_pos(self.slice_pos);
+        self.send_cmd(0b11110000 + 0b1000 + cmd);
     }
 
     pub(crate) fn grab(&mut self) {
@@ -65,8 +72,8 @@ impl Motors {
             } else {
                 self.slice_pos = 2
             }
-            // TODO : send slice turn to board
-            unimplemented!()
+            let cmd = ser_slice_pos(self.slice_pos);
+            self.send_cmd(0b11110000 + 0b1000 + cmd);
         } else {
             print!("Already grabbed")
         }
@@ -75,8 +82,8 @@ impl Motors {
     pub(crate) fn release(&mut self) {
         if self.slice_pos.abs() > 1 {
             self.slice_pos /= 2;
-            // TODO : send slice turn to board
-            unimplemented!()
+            let cmd = ser_slice_pos(self.slice_pos);
+            self.send_cmd(0b11110000 + 0b1000 + cmd);
         } else {
             println!("Already released")
         }
@@ -116,5 +123,15 @@ impl Motors {
         } else {
             false
         }
+    }
+}
+
+fn ser_slice_pos(slice_pos: i8) -> u8 {
+    match slice_pos {
+        -2 => 0,
+        -1 => 1,
+        1 => 2,
+        2 => 3,
+        x => panic!("Slice position {} not valid", x)
     }
 }
