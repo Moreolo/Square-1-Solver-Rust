@@ -80,16 +80,9 @@ pub fn capture() -> PictureSet {
 
 pub(crate) fn raw_capture() -> Result<(), ()> {
     // TODO : Check if capture actually returns Error in case capture fails
-    for (file, camera) in [("left.jpg", "1"), ("right.jpg", "0")] {
+    for config in ["config_cam_left.txt", "config_cam_right.txt"] {
         if Command::new("rpicam-still")
-            .arg("-n").arg("--immediate")
-            .arg("-o").arg(file)
-            .arg("--gain").arg("1")
-            .arg("--awbgains").arg("1,1")
-            .arg("--shutter").arg("10000")
-            .arg("--width").arg("820")
-            .arg("--height").arg("616")
-            .arg("--camera").arg(camera)
+            .arg("--config").arg(config)
             .output().is_err() {return Err(())};
     }
     Ok(())
