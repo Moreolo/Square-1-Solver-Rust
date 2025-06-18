@@ -1,5 +1,5 @@
 use image::{imageops::crop_imm, Luma, Rgb};
-use imageproc::{definitions::Image, drawing::{draw_filled_circle_mut, draw_hollow_rect_mut}, edges::canny, hough::{detect_lines, LineDetectionOptions}, map::{blue_channel, map_colors, red_channel}, rect::Rect};
+use imageproc::{definitions::Image, drawing::{draw_filled_circle_mut, draw_hollow_rect_mut}, edges::canny, hough::{detect_lines, LineDetectionOptions}, map::{blue_channel, map_colors, map_colors2, red_channel}, rect::Rect};
 
 use super::{partpiece::{PartPiece, Shape, SideColor, UDColor}, picconfig::PICCONFIG};
 
@@ -20,14 +20,34 @@ pub struct PictureSet {
 
 impl PictureSet {
     pub(super) fn new(image_rgb_left: Image<Rgb<u8>>, image_rgb_right: Image<Rgb<u8>>) -> Self {
-        let low_threshold = 50.;
-        let high_threshold = 80.;
+        let low_threshold = 30.;
+        let high_threshold = 40.;
         let image_hsv_left = rgb2hsv(&image_rgb_left);
         let image_hsv_right = rgb2hsv(&image_rgb_right);
         let image_value_left = val_channel(&image_hsv_left);
         let image_value_right = val_channel(&image_hsv_right);
-        let image_edges_left = canny(&image_value_left, low_threshold, high_threshold);
-        let image_edges_right = canny(&image_value_right, low_threshold, high_threshold);
+        let image_hue_left = hue_channel(&image_hsv_left);
+        let image_hue_right = hue_channel(&image_hsv_right);
+        println!("Starting canny");
+        let image_value_edges_left = canny(&image_value_left, low_threshold, high_threshold);
+        let image_value_edges_right = canny(&image_value_right, low_threshold, high_threshold);
+        let image_hue_edges_left = canny(&image_hue_left, low_threshold, high_threshold);
+        let image_hue_edges_right = canny(&image_hue_right, low_threshold, high_threshold);
+
+        let image_edges_left = map_colors2(&image_value_edges_left, &image_hue_edges_left, |p, q| {
+            if p[0] > 0 || q[0] > 0 {
+                Luma([255])
+            } else {
+                Luma([0])
+            }
+        });
+        let image_edges_right = map_colors2(&image_value_edges_right, &image_hue_edges_right, |p, q| {
+            if p[0] > 0 || q[0] > 0 {
+                Luma([255])
+            } else {
+                Luma([0])
+            }
+        });
 
         Self {
             image_rgb_left,

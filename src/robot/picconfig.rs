@@ -32,7 +32,7 @@ impl PicConfig {
     }
 
     pub(crate) fn get_usb_path(&self) -> String {
-        format!("/dev/ttyUSB{}", self.usb_port)
+        format!("/dev/ttyACM{}", self.usb_port)
     }
 
     pub(crate) fn get_line_classes(&self) -> [i32; 6] {

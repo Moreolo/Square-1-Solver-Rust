@@ -7,5 +7,5 @@ awbgains=1,1
 shutter=10000
 width=720
 height=1080
-roi=0.25,0.07,0.4,0.8
+roi=0.3,0.1,0.4,0.8
 hflip=

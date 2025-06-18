@@ -130,6 +130,7 @@ impl Controller {
             self.motors.turn_layers(up, down, self.thumb_to_cam);
         }
 
+        self.motors.release();
         // Reset state
         self.solution = None;
         self.show_idle();
