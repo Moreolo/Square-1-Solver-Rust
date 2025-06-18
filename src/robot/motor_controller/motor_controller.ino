@@ -10,7 +10,7 @@
 
 #define motorInterfaceType 1
 
-const int rev = 200 * 4;
+const int rev = 200 * 2;
 const int vel = rev * 2;
 const float acc = vel * 100000;
 
@@ -111,8 +111,8 @@ void loop() {
           // moves to slice position
           switch (command & 0b0011) {
             case 0:
-              slice.runToNewPosition((long) (-2.5 * rev / 4));
-              slice.setCurrentPosition(-2 * rev / 4);
+              slice.runToNewPosition((long) (-1.6 * rev / 4));
+              slice.setCurrentPosition(-1.5 * rev / 4);
               break;
             case 1:
               slice.runToNewPosition(-1 * rev / 4);
@@ -121,8 +121,8 @@ void loop() {
               slice.runToNewPosition(1 * rev / 4);
               break;
             case 3:
-              slice.runToNewPosition((long) (2.5 * rev / 4));
-              slice.setCurrentPosition(2 * rev / 4);
+              slice.runToNewPosition((long) (1.6 * rev / 4));
+              slice.setCurrentPosition(1.5 * rev / 4);
               break;
           }
           Serial.write(0x00);
