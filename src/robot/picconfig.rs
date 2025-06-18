@@ -12,8 +12,10 @@ pub(crate) struct PicConfig {
     line_classes: [i32; 6],
     spots_left_ud: [(u32, u32); 4],
     spots_left_side: [(u32, u32); 4],
+    spots_left_side_alt: [(u32, u32); 2],
     spots_right_ud: [(u32, u32); 4],
     spots_right_side: [(u32, u32); 4],
+    spots_right_side_alt: [(u32, u32); 2],
     spot_extra: (u32, u32),
     areas_left: [(u32, u32, u32, u32); 4],
     areas_right: [(u32, u32, u32, u32); 4],
@@ -39,9 +41,7 @@ impl PicConfig {
         self.line_classes
     }
 
-    pub(crate) fn get_spot(&self, id: usize) -> (u32, u32) {
-        let field = id / 4;
-        let index = id % 4;
+    fn get_spot_deep(&self, field: usize, index: usize) -> (u32, u32) {
         match field {
             0 => self.spots_left_ud[index],
             1 => self.spots_left_side[index],
@@ -53,6 +53,20 @@ impl PicConfig {
                 panic!("Spot id out of range")
             },
             _ => panic!("Spot id out of range")
+        }
+    }
+
+    pub(crate) fn get_spot(&self, id: usize, alt: bool) -> (u32, u32) {
+        let field = id / 4;
+        let index = id % 4;
+        if alt && (index == 1 || index == 2) {
+            match field {
+                1 => self.spots_left_side_alt[index - 1],
+                3 => self.spots_right_side_alt[index - 1],
+                _ => self.get_spot_deep(field, index)
+            }
+        } else {
+            self.get_spot_deep(field, index)
         }
     }
 

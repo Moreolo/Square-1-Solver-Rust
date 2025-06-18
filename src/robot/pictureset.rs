@@ -20,15 +20,14 @@ pub struct PictureSet {
 
 impl PictureSet {
     pub(super) fn new(image_rgb_left: Image<Rgb<u8>>, image_rgb_right: Image<Rgb<u8>>) -> Self {
-        let low_threshold = 30.;
-        let high_threshold = 40.;
+        let low_threshold = 40.;
+        let high_threshold = 50.;
         let image_hsv_left = rgb2hsv(&image_rgb_left);
         let image_hsv_right = rgb2hsv(&image_rgb_right);
         let image_value_left = val_channel(&image_hsv_left);
         let image_value_right = val_channel(&image_hsv_right);
         let image_hue_left = hue_channel(&image_hsv_left);
         let image_hue_right = hue_channel(&image_hsv_right);
-        println!("Starting canny");
         let image_value_edges_left = canny(&image_value_left, low_threshold, high_threshold);
         let image_value_edges_right = canny(&image_value_right, low_threshold, high_threshold);
         let image_hue_edges_left = canny(&image_hue_left, low_threshold, high_threshold);
@@ -65,10 +64,15 @@ impl PictureSet {
         }
         let left_text = if left {"left"} else {"right"};
         if let Some(shape) = self.get_shape(left, id) {
+            let alt = match shape {
+                Shape::CornerStart => id == 1,
+                Shape::Edge => false,
+                Shape::CornerEnd => id == 2,
+            };
             let partpiece = PartPiece {
                 shape,
                 udcolor: self.get_udcolor(left, id),
-                sidecolor: self.get_sidecolor(left, id)
+                sidecolor: self.get_sidecolor(left, id, alt)
             };
             println!("Piece at {}-{} : {}", left_text, id, partpiece);
             Some(partpiece)
@@ -82,16 +86,22 @@ impl PictureSet {
     // format: (thumb towards cam, slice solved, small red top)
     pub fn get_slice_config(&self) -> (bool, bool, bool) {
         let thumb_to_cam = self.get_lines(false, 4).iter().fold(false, | acc, deg | {
-            // TODO : figure out correct values to check
-            acc
+            if acc {
+                true
+            } else {
+                *deg > -20 && *deg < 0
+            }
         });
-        let slice_solved = thumb_to_cam == self.get_lines(false, 5).iter().fold(false, | acc, deg | {
-            // TODO : figure out correct values to check
-            acc
+        let slice_solved = thumb_to_cam == self.get_lines(false, 5).iter().fold(true, | acc, deg | {
+            if acc {
+                *deg < 0 || *deg > 20
+            } else {
+                false
+            }
         });
-        let red_top = match self.get_sidecolor(false, 4) {
-            SideColor::Red => !thumb_to_cam,
-            _ => thumb_to_cam
+        let red_top = match self.get_sidecolor(false, 4, false) {
+            SideColor::Red => thumb_to_cam,
+            _ => !thumb_to_cam
         };
         println!("Thumb to cam: {}", thumb_to_cam);
         println!("Slice solved: {}", slice_solved);
@@ -99,11 +109,11 @@ impl PictureSet {
         (thumb_to_cam, slice_solved, red_top)
     }
 
-    pub fn get_slice_turn(&self, thumb_to_cam: bool, bar_solved: bool) -> i8 {
-        let bot_thumb_to_cam = thumb_to_cam != bar_solved;
-        // TODO : output correct direction and figure out if cube is grabbed
-        unimplemented!()
-    }
+    // pub fn get_slice_turn(&self, thumb_to_cam: bool, bar_solved: bool) -> i8 {
+    //     let bot_thumb_to_cam = thumb_to_cam != bar_solved;
+    //     // TODO : output correct direction and figure out if cube is grabbed
+    //     unimplemented!()
+    // }
 
     fn get_lines(&self, left: bool, id: usize) -> Vec<i32> {
         let left_text = if left {"left"} else {"right"};
@@ -123,17 +133,9 @@ impl PictureSet {
         };
         let lines = detect_lines(&cropped_image, options).iter().map(| line | {
             let deg = if line.angle_in_degrees > 90 {
-                if false {// TODO : uncomment left {
-                    line.angle_in_degrees as i32 - 180
-                } else {
-                    180 - (line.angle_in_degrees as i32)
-                }
+                line.angle_in_degrees as i32 - 180
             } else {
-                if false { // TODO : uncomment left {
-                    line.angle_in_degrees as i32
-                } else {
-                    -(line.angle_in_degrees as i32)
-                }
+                line.angle_in_degrees as i32
             };
             print!(": {} ", deg);
             deg
@@ -162,9 +164,9 @@ impl PictureSet {
     fn get_udcolor(&self, left: bool, id: usize) -> UDColor {
         // process spot
         let (val_image, (x, y)) = if left {
-            (val_channel(&self.image_hsv_left), PICCONFIG.get_spot(id))
+            (val_channel(&self.image_hsv_left), PICCONFIG.get_spot(id, false))
         } else {
-            (val_channel(&self.image_hsv_right), PICCONFIG.get_spot(id + 8))
+            (val_channel(&self.image_hsv_right), PICCONFIG.get_spot(id + 8, false))
         };
         // crop image
         let cropped_image = crop_imm(&val_image,
@@ -184,12 +186,12 @@ impl PictureSet {
         }
     }
 
-    fn get_sidecolor(&self, left: bool, id: usize) -> SideColor {
+    fn get_sidecolor(&self, left: bool, id: usize, alt: bool) -> SideColor {
         // process spot
         let (hue_image, (x, y)) = if left {
-            (hue_channel(&self.image_hsv_left), PICCONFIG.get_spot(id + 4))
+            (hue_channel(&self.image_hsv_left), PICCONFIG.get_spot(id + 4, alt))
         } else {
-            (hue_channel(&self.image_hsv_right), PICCONFIG.get_spot(id + 12))
+            (hue_channel(&self.image_hsv_right), PICCONFIG.get_spot(id + 12, alt))
         };
         // crop image
         let cropped_image = crop_imm(&hue_image,
@@ -202,7 +204,7 @@ impl PictureSet {
         let left_text = if left {"left"} else {"right"};
         println!("Hue of {}-{} : {}", left_text, id, median_hue);
         // classify median hue
-        if median_hue < 25 {
+        if median_hue < 14 {
             SideColor::Red
         } else if median_hue < 60 {
             SideColor::Orange
@@ -229,22 +231,25 @@ impl PictureSet {
             }
         }
         for i in 0..17 {
-            let (x, y) = PICCONFIG.get_spot(i);
-            if i < 8 {
-                draw_filled_circle_mut(&mut config_image_rgb_left, (x as i32, y as i32), RADIUS as i32, BLACK);
-                if i < 4 {
-                    draw_filled_circle_mut(&mut config_image_rgb_left, (x as i32, y as i32), (RADIUS-2) as i32, WHITE);
+            for alt in [true, false] {
+                let (x, y) = PICCONFIG.get_spot(i, alt);
+                if i < 8 {
+                    draw_filled_circle_mut(&mut config_image_rgb_left, (x as i32, y as i32), RADIUS as i32, BLACK);
+                    if i < 4 {
+                        draw_filled_circle_mut(&mut config_image_rgb_left, (x as i32, y as i32), (RADIUS-2) as i32, WHITE);
+                    } else {
+                        draw_filled_circle_mut(&mut config_image_rgb_left, (x as i32, y as i32), (RADIUS-2) as i32, YELLOW);
+                    }
                 } else {
-                    draw_filled_circle_mut(&mut config_image_rgb_left, (x as i32, y as i32), (RADIUS-2) as i32, YELLOW);
-                }
-            } else {
-                draw_filled_circle_mut(&mut config_image_rgb_right, (x as i32, y as i32), RADIUS as i32, BLACK);
-                if i < 12 {
-                    draw_filled_circle_mut(&mut config_image_rgb_right, (x as i32, y as i32), (RADIUS-2) as i32, WHITE);
-                } else {
-                    draw_filled_circle_mut(&mut config_image_rgb_right, (x as i32, y as i32), (RADIUS-2) as i32, YELLOW);
+                    draw_filled_circle_mut(&mut config_image_rgb_right, (x as i32, y as i32), RADIUS as i32, BLACK);
+                    if i < 12 {
+                        draw_filled_circle_mut(&mut config_image_rgb_right, (x as i32, y as i32), (RADIUS-2) as i32, WHITE);
+                    } else {
+                        draw_filled_circle_mut(&mut config_image_rgb_right, (x as i32, y as i32), (RADIUS-2) as i32, YELLOW);
+                    }
                 }
             }
+            
         }
         config_image_rgb_left.save("left_spots.jpg").expect("Failed to save image");
         config_image_rgb_right.save("right_spots.jpg").expect("Failed to save image");

@@ -61,7 +61,7 @@ impl Controller {
         let pictures = cameras::capture();
         let (thumb_to_cam, bar_solved, red_top) = pictures.get_slice_config();
         self.thumb_to_cam = thumb_to_cam;
-        let slice_pos = pictures.get_slice_turn(thumb_to_cam, bar_solved);
+        let slice_pos = if thumb_to_cam == bar_solved {-2} else {2};
         self.motors.start(Some(slice_pos));
         self.motors.grab();
 
