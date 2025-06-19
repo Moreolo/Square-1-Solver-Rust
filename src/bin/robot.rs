@@ -10,8 +10,8 @@ fn main() {
     }
 
     let contr_esc = Arc::clone(&contr_base);
-    inputbot::KeybdKey::EscapeKey.bind(move || {
-        println!("Escape pressed");
+    inputbot::KeybdKey::MinusKey.bind(move || {
+        println!("Minus pressed");
         if let Ok(mut contr) = contr_esc.try_lock() {
             contr.quit();
             exit(0)
@@ -19,8 +19,8 @@ fn main() {
     });
 
     let contr_e = Arc::clone(&contr_base);
-    inputbot::KeybdKey::EKey.bind(move || {
-        println!("e pressed");
+    inputbot::KeybdKey::SlashKey.bind(move || {
+        println!("Slash pressed");
         if let Ok(mut contr) = contr_e.try_lock() {
             contr.detect(true);
         }
@@ -29,7 +29,7 @@ fn main() {
     let contr_enter = Arc::clone(&contr_base);
     let stop_enter = Arc::clone(&stop);
     inputbot::KeybdKey::EnterKey.bind(move || {
-        println!("enter pressed");
+        println!("Enter pressed");
         if let Ok(mut contr) = contr_enter.try_lock() {
             contr.execute(&stop_enter);
         }
