@@ -1,5 +1,5 @@
 use image::{imageops::crop_imm, Luma, Rgb};
-use imageproc::{definitions::Image, drawing::{draw_filled_circle_mut, draw_hollow_rect_mut}, edges::canny, hough::{detect_lines, LineDetectionOptions}, map::{blue_channel, map_colors, map_colors2, red_channel}, rect::Rect};
+use imageproc::{definitions::Image, drawing::{draw_filled_circle_mut, draw_hollow_rect_mut}, edges::canny, hough::{detect_lines, LineDetectionOptions}, map::{blue_channel, green_channel, map_colors, red_channel}, rect::Rect};
 
 use super::{partpiece::{PartPiece, Shape, SideColor, UDColor}, picconfig::PICCONFIG};
 
@@ -14,47 +14,36 @@ pub struct PictureSet {
     image_rgb_right: Image<Rgb<u8>>,
     image_hsv_left: Image<Rgb<u8>>,
     image_hsv_right: Image<Rgb<u8>>,
-    image_edges_left: Image<Luma<u8>>,
-    image_edges_right: Image<Luma<u8>>
+    image_sat_edges_left: Image<Luma<u8>>,
+    image_sat_edges_right: Image<Luma<u8>>,
+    image_val_edges_left: Image<Luma<u8>>,
+    image_val_edges_right: Image<Luma<u8>>
 }
 
 impl PictureSet {
     pub(super) fn new(image_rgb_left: Image<Rgb<u8>>, image_rgb_right: Image<Rgb<u8>>) -> Self {
-        let low_threshold = 40.;
-        let high_threshold = 50.;
+        let low_threshold = 90.;
+        let high_threshold = 140.;
         let image_hsv_left = rgb2hsv(&image_rgb_left);
         let image_hsv_right = rgb2hsv(&image_rgb_right);
-        let image_value_left = val_channel(&image_hsv_left);
-        let image_value_right = val_channel(&image_hsv_right);
-        let image_hue_left = hue_channel(&image_hsv_left);
-        let image_hue_right = hue_channel(&image_hsv_right);
-        let image_value_edges_left = canny(&image_value_left, low_threshold, high_threshold);
-        let image_value_edges_right = canny(&image_value_right, low_threshold, high_threshold);
-        let image_hue_edges_left = canny(&image_hue_left, low_threshold, high_threshold);
-        let image_hue_edges_right = canny(&image_hue_right, low_threshold, high_threshold);
-
-        let image_edges_left = map_colors2(&image_value_edges_left, &image_hue_edges_left, |p, q| {
-            if p[0] > 0 || q[0] > 0 {
-                Luma([255])
-            } else {
-                Luma([0])
-            }
-        });
-        let image_edges_right = map_colors2(&image_value_edges_right, &image_hue_edges_right, |p, q| {
-            if p[0] > 0 || q[0] > 0 {
-                Luma([255])
-            } else {
-                Luma([0])
-            }
-        });
+        let image_sat_left = sat_channel(&image_hsv_left);
+        let image_sat_right = sat_channel(&image_hsv_right);
+        let image_val_left = val_channel(&image_hsv_left);
+        let image_val_right = val_channel(&image_hsv_right);
+        let image_sat_edges_left = canny(&image_sat_left, low_threshold, high_threshold);
+        let image_sat_edges_right = canny(&image_sat_right, low_threshold, high_threshold);
+        let image_val_edges_left = canny(&image_val_left, low_threshold, high_threshold);
+        let image_val_edges_right = canny(&image_val_right, low_threshold, high_threshold);
 
         Self {
             image_rgb_left,
             image_rgb_right,
             image_hsv_left,
             image_hsv_right,
-            image_edges_left,
-            image_edges_right
+            image_sat_edges_left,
+            image_sat_edges_right,
+            image_val_edges_left,
+            image_val_edges_right
         }
     }
 
@@ -63,7 +52,12 @@ impl PictureSet {
             panic!("id too large")
         }
         let left_text = if left {"left"} else {"right"};
-        if let Some(shape) = self.get_shape(left, id) {
+        let udcolor = self.get_udcolor(left, id);
+        let black = match udcolor {
+            UDColor::Black => true,
+            UDColor::White => false
+        };
+        if let Some(shape) = self.get_shape(left, id, black) {
             let alt = match shape {
                 Shape::CornerStart => id == 1,
                 Shape::Edge => false,
@@ -71,7 +65,7 @@ impl PictureSet {
             };
             let partpiece = PartPiece {
                 shape,
-                udcolor: self.get_udcolor(left, id),
+                udcolor,
                 sidecolor: self.get_sidecolor(left, id, alt)
             };
             println!("Piece at {}-{} : {}", left_text, id, partpiece);
@@ -85,14 +79,14 @@ impl PictureSet {
     // returns the configuration of the slice
     // format: (thumb towards cam, slice solved, small red top)
     pub fn get_slice_config(&self) -> (bool, bool, bool) {
-        let thumb_to_cam = self.get_lines(false, 4).iter().fold(false, | acc, deg | {
+        let thumb_to_cam = self.get_lines(false, 4, false).iter().fold(false, | acc, deg | {
             if acc {
                 true
             } else {
                 *deg > -20 && *deg < 0
             }
         });
-        let slice_solved = thumb_to_cam == self.get_lines(false, 5).iter().fold(true, | acc, deg | {
+        let slice_solved = thumb_to_cam == self.get_lines(false, 5, false).iter().fold(true, | acc, deg | {
             if acc {
                 *deg < 0 || *deg > 20
             } else {
@@ -115,14 +109,14 @@ impl PictureSet {
     //     unimplemented!()
     // }
 
-    fn get_lines(&self, left: bool, id: usize) -> Vec<i32> {
+    fn get_lines(&self, left: bool, id: usize, black: bool) -> Vec<i32> {
         let left_text = if left {"left"} else {"right"};
         print!("Lines off {}-{} ", left_text, id);
         // process area
         let (edge_image, (x, y, width, height)) = if left {
-            (&self.image_edges_left, PICCONFIG.get_area(id))
+            (if black {&self.image_val_edges_left} else {&self.image_sat_edges_left}, PICCONFIG.get_area(id))
         } else {
-            (&self.image_edges_right, PICCONFIG.get_area(id + 4))
+            (if black {&self.image_val_edges_right} else {&self.image_sat_edges_right}, PICCONFIG.get_area(id + 4))
         };
         // crop image
         let cropped_image = crop_imm(edge_image, x, y, width, height).to_image();
@@ -144,8 +138,8 @@ impl PictureSet {
         lines
     }
 
-    fn get_shape(&self, left: bool, id: usize) -> Option<Shape> {
-        self.get_lines(left, id).iter().fold( None, | acc, deg | {
+    fn get_shape(&self, left: bool, id: usize, black: bool) -> Option<Shape> {
+        self.get_lines(left, id, black).iter().fold( None, | acc, deg | {
             match acc {
                 Some(shape) => Some(shape),
                 None => {
@@ -204,7 +198,9 @@ impl PictureSet {
         let left_text = if left {"left"} else {"right"};
         println!("Hue of {}-{} : {}", left_text, id, median_hue);
         // classify median hue
-        if median_hue < 14 {
+        if median_hue < 11 && (id == 0 || id == 3) {
+            SideColor::Red
+        } else if median_hue < 20 && (id == 1 || id == 2 || id == 4) {
             SideColor::Red
         } else if median_hue < 60 {
             SideColor::Orange
@@ -219,8 +215,8 @@ impl PictureSet {
     pub fn save_overlay_config(&self) {
         let mut config_image_rgb_left = self.image_rgb_left.clone();
         let mut config_image_rgb_right = self.image_rgb_right.clone();
-        let mut config_image_edges_left = edg2rgb(&self.image_edges_left);
-        let mut config_image_edges_right = edg2rgb(&self.image_edges_right);
+        let mut config_image_edges_left = edg2rgb(&self.image_sat_edges_left);
+        let mut config_image_edges_right = edg2rgb(&self.image_sat_edges_right);
 
         for i in 0..10 {
             let (x, y, width, height) = PICCONFIG.get_area(i);
@@ -255,6 +251,8 @@ impl PictureSet {
         config_image_rgb_right.save("right_spots.jpg").expect("Failed to save image");
         config_image_edges_left.save("left_edges.jpg").expect("Failed to save image");
         config_image_edges_right.save("right_edges.jpg").expect("Failed to save image");
+        edg2rgb(&self.image_val_edges_left).save("left_val_edges.jpg").expect("Failed to save image");
+        edg2rgb(&self.image_val_edges_right).save("right_val_edges.jpg").expect("Failed to save image");
     }
 }
 
@@ -284,6 +282,10 @@ fn rgb2hsv(img: &Image<Rgb<u8>>) -> Image<Rgb<u8>> {
 
 fn hue_channel(img: &Image<Rgb<u8>>) -> Image<Luma<u8>> {
     red_channel(img)
+}
+
+fn sat_channel(img: &Image<Rgb<u8>>) -> Image<Luma<u8>> {
+    green_channel(img)
 }
 
 fn val_channel(img: &Image<Rgb<u8>>) -> Image<Luma<u8>> {

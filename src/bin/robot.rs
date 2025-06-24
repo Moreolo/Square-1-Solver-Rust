@@ -10,8 +10,8 @@ fn main() {
     }
 
     let contr_esc = Arc::clone(&contr_base);
-    inputbot::KeybdKey::MinusKey.bind(move || {
-        println!("Minus pressed");
+    inputbot::KeybdKey::HomeKey.bind(move || {
+        println!("Numpad 7 / Home pressed");
         if let Ok(mut contr) = contr_esc.try_lock() {
             contr.quit();
             exit(0)
@@ -19,8 +19,8 @@ fn main() {
     });
 
     let contr_e = Arc::clone(&contr_base);
-    inputbot::KeybdKey::SlashKey.bind(move || {
-        println!("Slash pressed");
+    inputbot::KeybdKey::DeleteKey.bind(move || {
+        println!(". / Delete pressed");
         if let Ok(mut contr) = contr_e.try_lock() {
             contr.detect(true);
         }
@@ -28,8 +28,8 @@ fn main() {
 
     let contr_enter = Arc::clone(&contr_base);
     let stop_enter = Arc::clone(&stop);
-    inputbot::KeybdKey::EnterKey.bind(move || {
-        println!("Enter pressed");
+    inputbot::KeybdKey::InsertKey.bind(move || {
+        println!("Numpad 0 / Insert pressed");
         if let Ok(mut contr) = contr_enter.try_lock() {
             contr.execute(&stop_enter);
         }
@@ -37,7 +37,7 @@ fn main() {
 
     let contr_backspace = Arc::clone(&contr_base);
     let stop_backspace = Arc::clone(&stop);
-    inputbot::KeybdKey::BackspaceKey.block_bind(move || {
+    inputbot::KeybdKey::BackspaceKey.bind(move || {
         println!("Backspace pressed");
         match contr_backspace.try_lock() {
             Ok(mut contr) => contr.toggle_fast_mode(),

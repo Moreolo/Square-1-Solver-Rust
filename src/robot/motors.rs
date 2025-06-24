@@ -75,7 +75,7 @@ impl Motors {
             let cmd = ser_slice_pos(self.slice_pos);
             self.send_cmd(0b11110000 + 0b1000 + cmd);
         } else {
-            print!("Already grabbed")
+            println!("Already grabbed")
         }
     }
 
@@ -97,13 +97,12 @@ impl Motors {
             panic!("Layer Turn invalid")
         }
         if self.running {
-            self.grab();
             let left = if up < 0 {up + 12} else {up} as u8;
             let right = if down < 0 {down + 12} else {down} as u8;
             let bytes = if thumb_to_cam {
-                left << 4 + right
+                (left << 4) + right
             } else {
-                right << 4 + left
+                (right << 4) + left
             };
             self.send_cmd(bytes);
         } else {

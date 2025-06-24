@@ -4,12 +4,14 @@
 // It will turn the layers of the Square-1 to see all pieces
 // It will reconstruct the Square-1 completly and adjust for config
 
+use std::{thread::sleep, time::Duration};
+
 use crate::square1::Square1;
 
 use super::{cameras::capture, motors::Motors, partpiece::{PartPiece, Shape}, pictureset::PictureSet};
 
 pub fn detect_square1(motors: &mut Motors, thumb_to_cam: bool, red_top: bool) -> Option<Square1> {
-    let (left_layer, right_layer) = match build_partpiece_layers(motors) {
+    let (left_layer, right_layer) = match build_partpiece_layers(motors, true) {
         Some(x) => x,
         None => return None
     };
@@ -17,59 +19,85 @@ pub fn detect_square1(motors: &mut Motors, thumb_to_cam: bool, red_top: bool) ->
     for partpiece in &left_layer {
         match partpiece {
             Some(pp) => print!(" - {pp}"),
-            None => print!("NONE")
+            None => print!(" - NONE")
         }
     }
     print!("\nRight Layer");
     for partpiece in &right_layer {
         match partpiece {
             Some(pp) => print!(" - {pp}"),
-            None => print!("NONE")
+            None => print!(" - NONE")
         }
     }
     println!();
     convert_partpieces(motors, left_layer, right_layer, thumb_to_cam, red_top)
 }
 
-pub fn build_partpiece_layers(motors: &mut Motors) -> Option<([Option<PartPiece>; 12], [Option<PartPiece>; 12])> {
+pub fn build_partpiece_layers(motors: &mut Motors, small_steps: bool) -> Option<([Option<PartPiece>; 12], [Option<PartPiece>; 12])> {
     let mut left_layer = [const { None }; 12];
     let mut right_layer = [const { None }; 12];
     // Take multiple pictures
     let mut pictures = capture();
-    for pic_num in 0..3 {
+    for pic_num in if small_steps {0..6} else {0..3} {
         if pic_num != 0 {
-            motors.turn_layers(-4, 4, true);
+            if small_steps {
+                motors.turn_layers(-2, 2, true);
+            } else {
+                motors.turn_layers(-4, 4, true);
+            }
+            sleep(Duration::from_millis(50));
             pictures = capture();
         }
 
         // Process every spot
-        if let Err(spot) = fill_layer(&mut left_layer, &pictures, pic_num, true) {
+        if let Err(spot) = fill_layer(&mut left_layer, &pictures, pic_num, true, small_steps) {
             println!("Piece overlap on left-{} at spot {}", pic_num, spot);
             return None
         }
-        if let Err(spot) = fill_layer(&mut right_layer, &pictures, pic_num, false) {
+        if let Err(spot) = fill_layer(&mut right_layer, &pictures, pic_num, false, small_steps) {
             println!("Piece overlap on right-{} at spot {}", pic_num, spot);
             return None
         }
+        print!("Left Layer");
+        for partpiece in &left_layer {
+            match partpiece {
+                Some(pp) => print!(" - {pp}"),
+                None => print!(" - NONE")
+            }
+        }
+        print!("\nRight Layer");
+        for partpiece in &right_layer {
+            match partpiece {
+                Some(pp) => print!(" - {pp}"),
+                None => print!(" - NONE")
+            }
+        }
+        println!()
     };
     // Correct for offset of layers relative to real turn
-    left_layer.rotate_right(2);
-    right_layer.rotate_left(4);
+    if small_steps {
+        left_layer.rotate_right(1);
+        right_layer.rotate_left(5);
+    } else {
+        left_layer.rotate_right(2);
+        right_layer.rotate_left(4);
+    }
     Some((left_layer, right_layer))
 }
 
-fn fill_layer(layer: &mut [Option<PartPiece>; 12], pictures: &PictureSet, pic_num: usize, left: bool) -> Result<(), usize> {
+fn fill_layer(layer: &mut [Option<PartPiece>; 12], pictures: &PictureSet, pic_num: usize, left: bool, small_steps: bool) -> Result<(), usize> {
     // Checks all spots
-    for spot in [1, 0, 2, 3] {
-        match layer[pic_num * 4 + spot] {
+    let offset = if small_steps {pic_num * 2} else {pic_num * 4};
+    for spot in if small_steps {vec![0, 1]} else {vec![1, 0, 2, 3]} {
+        match layer[offset + spot] {
             Some(_) => {},
-            None => match pictures.get_partpiece(left, spot) {
+            None => match pictures.get_partpiece(left, if small_steps {spot + 1} else {spot}) {
                 // If partpiece is detected
                 Some(partpiece) => {
                     match partpiece.shape {
                         // Also fill spot next to corner
                         Shape::CornerStart => {
-                            let adj_index = (pic_num * 4 + spot + 1) % 12;
+                            let adj_index = (offset + spot + 1) % 12;
                             match layer[adj_index] {
                                 // In case of corner edge mixup, return error
                                 Some(_) => return Err(spot),
@@ -78,7 +106,7 @@ fn fill_layer(layer: &mut [Option<PartPiece>; 12], pictures: &PictureSet, pic_nu
                         }
                         Shape::Edge => {}
                         Shape::CornerEnd => {
-                            let adj_index = (12 + pic_num * 4 + spot - 1) % 12;
+                            let adj_index = (12 + offset + spot - 1) % 12;
                             match layer[adj_index] {
                                 Some(_) => return Err(spot),
                                 None => layer[adj_index] = partpiece.get_adj(left)
@@ -86,9 +114,11 @@ fn fill_layer(layer: &mut [Option<PartPiece>; 12], pictures: &PictureSet, pic_nu
                         }
                     }
                     // Fill this spot
-                    layer[pic_num * 4 + spot] = Some(partpiece)
+                    layer[offset + spot] = Some(partpiece)
                 }
-                None => {}
+                None => {
+                    return Err(spot)
+                }
             }
         }
     };
@@ -155,6 +185,7 @@ fn get_turn_to_valid(layer: &Vec<PartPiece>) -> usize {
             }
         }
     }).fold(None, |acc, pos_turn| {
+        println!("{pos_turn}");
         match acc {
             Some(turn) => {
                 // Decides on the best turn

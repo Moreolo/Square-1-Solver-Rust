@@ -41,6 +41,7 @@ impl Controller {
         println!("Starting Robot");
         cameras::show(&Info::Init);
         load_table();
+        println!("Ready");
         self.show_idle();
     }
 
@@ -86,8 +87,9 @@ impl Controller {
                 true
             },
             None => {
-                cameras::blink(&Info::Error);
                 self.motors.stop();
+                cameras::blink(&Info::Error);
+                self.show_idle();
                 false
             }
         }
