@@ -10,9 +10,11 @@
 
 #define motorInterfaceType 1
 
-const int rev = 200 * 2;
-const int vel = rev * 2;
-const float acc = vel * 100000;
+#define outerPos 1.5
+
+#define rev 200 * 2
+#define vel rev * 2
+#define acc vel * 100.
 
 int left_pos = 0;
 int right_pos = 0;
@@ -22,9 +24,9 @@ AccelStepper sideR(motorInterfaceType, yStepPin, yDirPin, 4, 5, false); // y Axi
 AccelStepper slice(motorInterfaceType, zStepPin, zDirPin, 4, 5, false); // z Axis is Slice
 
 void setup() {
-  sideL.setMaxSpeed(vel);
+  sideL.setMaxSpeed(vel * 1.5);
   sideL.setAcceleration(acc);
-  sideR.setMaxSpeed(vel);
+  sideR.setMaxSpeed(vel * 1.5);
   sideR.setAcceleration(acc);
   slice.setMaxSpeed(vel);
   slice.setAcceleration(acc);
@@ -99,11 +101,13 @@ void loop() {
           // 11xx
           // set speed mode
           if (command & 0b0001) {
+            sideL.setMaxSpeed(vel * 1.75);
+            sideR.setMaxSpeed(vel * 1.75);
             slice.setMaxSpeed(vel * 1.25);
-            slice.setAcceleration(acc * 0.5);
           } else {
+            sideL.setMaxSpeed(vel * 1.5);
+            sideR.setMaxSpeed(vel * 1.5);
             slice.setMaxSpeed(vel);
-            slice.setAcceleration(acc);
           }
           Serial.write(0x00);
         } else {
@@ -111,8 +115,8 @@ void loop() {
           // moves to slice position
           switch (command & 0b0011) {
             case 0:
-              slice.runToNewPosition((long) (-1.6 * rev / 4));
-              slice.setCurrentPosition(-1.5 * rev / 4);
+              slice.runToNewPosition((long) (-(outerPos + 0.1) * rev / 4));
+              slice.setCurrentPosition(-outerPos * rev / 4);
               break;
             case 1:
               slice.runToNewPosition(-1 * rev / 4);
@@ -121,8 +125,8 @@ void loop() {
               slice.runToNewPosition(1 * rev / 4);
               break;
             case 3:
-              slice.runToNewPosition((long) (1.6 * rev / 4));
-              slice.setCurrentPosition(1.5 * rev / 4);
+              slice.runToNewPosition((long) ((outerPos + 0.1) * rev / 4));
+              slice.setCurrentPosition(outerPos * rev / 4);
               break;
           }
           Serial.write(0x00);
@@ -135,10 +139,10 @@ void loop() {
           sideR.enableOutputs();
           slice.enableOutputs();
           digitalWrite(enablePin, LOW);
-          int slice_pos = 0;
+          float slice_pos = 0;
           switch (command & 0b0011) {
             case 0:
-              slice_pos = -2;
+              slice_pos = -outerPos;
               break;
             case 1:
               slice_pos = -1;
@@ -147,7 +151,7 @@ void loop() {
               slice_pos = 1;
               break;
             case 3:
-              slice_pos = 2;
+              slice_pos = outerPos;
               break;
           }
           slice.setCurrentPosition(slice_pos * rev / 4);

@@ -6,22 +6,25 @@
 // The motors need to turn the layers
 // The motors turn on and off
 
-use std::{io::{Read, Write}, time::Duration};
+use std::{io::{Read, Write}, thread::sleep, time::Duration};
 
-use serialport::{self, TTYPort};
+use serialport::{self, SerialPort, TTYPort};
 
 use super::picconfig::PICCONFIG;
 
-pub(crate) struct Motors {
+pub struct Motors {
     port: TTYPort,
     running: bool,
     slice_pos: i8
 }
 
 impl Motors {
-    pub(crate) fn new() -> Result<Self, ()> {
-        // TODO : configure serialport
-        if let Ok(port) = serialport::new(PICCONFIG.get_usb_path(), 115200).timeout(Duration::from_secs(1)).open_native() {
+    pub fn new() -> Result<Self, ()> {
+        if let Ok(port) = serialport::new(PICCONFIG.get_usb_path(), 115200).open_native() {
+            sleep(Duration::from_secs(1));
+            if port.clear(serialport::ClearBuffer::Input).is_err() {
+                println!("Failed to clear motor input buffer");
+            }
             Ok(Self {
                 port,
                 running: false,
@@ -31,11 +34,9 @@ impl Motors {
             println!("Failed to connect to motors");
             Err(())
         }
-        // TODO : send init to board
-        
     }
 
-    pub(crate) fn start(&mut self, slice_pos: Option<i8>) {
+    pub fn start(&mut self, slice_pos: Option<i8>) {
         if let Some(new_pos) = slice_pos {
             self.slice_pos = new_pos;
         }
@@ -44,7 +45,7 @@ impl Motors {
         self.running = true;
     }
 
-    pub(crate) fn stop(&mut self) {
+    pub fn stop(&mut self) {
         self.send_cmd(0b11110000);
         self.running = false;
     }
@@ -53,11 +54,11 @@ impl Motors {
         self.send_cmd(0b11110000 + 0b1100);
     }
 
-    pub(crate) fn fast_mode(&mut self) {
+    pub fn fast_mode(&mut self) {
         self.send_cmd(0b11110000 + 0b1101);
     }
 
-    pub(crate) fn turn_slice(&mut self) {
+    pub fn turn_slice(&mut self) {
         if self.slice_pos != 0 {
             self.slice_pos *= -1;
         }
@@ -91,7 +92,7 @@ impl Motors {
 
     /// Turns layers of Square-1
     /// Set thumb_to_cam to true for (left, right) usage
-    pub(crate) fn turn_layers(&mut self, up: i8, down: i8, thumb_to_cam: bool) {
+    pub fn turn_layers(&mut self, up: i8, down: i8, thumb_to_cam: bool) {
         if up < -6 || up > 11 || down < -6 || down > 11 {
             self.stop();
             panic!("Layer Turn invalid")
@@ -111,6 +112,7 @@ impl Motors {
     }
 
     fn send_cmd(&mut self, cmd: u8) -> bool {
+        sleep(Duration::from_millis(1));
         self.port.write(&[cmd]).expect("Failed to write command");
         let mut buf: Vec<u8> = vec![0];
         if let Ok(n) = self.port.read(buf.as_mut_slice()) {

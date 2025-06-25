@@ -45,7 +45,7 @@ pub fn build_partpiece_layers(motors: &mut Motors, small_steps: bool) -> Option<
             } else {
                 motors.turn_layers(-4, 4, true);
             }
-            sleep(Duration::from_millis(50));
+            sleep(Duration::from_millis(100));
             pictures = capture();
         }
 

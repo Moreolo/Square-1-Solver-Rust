@@ -23,7 +23,7 @@ pub struct PictureSet {
 impl PictureSet {
     pub(super) fn new(image_rgb_left: Image<Rgb<u8>>, image_rgb_right: Image<Rgb<u8>>) -> Self {
         let low_threshold = 90.;
-        let high_threshold = 140.;
+        let high_threshold = 100.;
         let image_hsv_left = rgb2hsv(&image_rgb_left);
         let image_hsv_right = rgb2hsv(&image_rgb_right);
         let image_sat_left = sat_channel(&image_hsv_left);
@@ -123,7 +123,7 @@ impl PictureSet {
         // detect lines
         let options = LineDetectionOptions {
             vote_threshold: 40,
-            suppression_radius: 6
+            suppression_radius: 20
         };
         let lines = detect_lines(&cropped_image, options).iter().map(| line | {
             let deg = if line.angle_in_degrees > 90 {
