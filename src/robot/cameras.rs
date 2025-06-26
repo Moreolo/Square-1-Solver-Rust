@@ -58,12 +58,17 @@ pub(crate) fn blink(info: &Info) {
     }
 }
 
-pub fn capture() -> PictureSet {
-    println!("Capturing Pictures");
+pub fn capture_with_lights() -> PictureSet {
     let mut spi_adapter = get_spi_device().unwrap();
     raw_show(&mut spi_adapter, &Info::Capture);
-    raw_capture().unwrap();
+    let pictures = capture();
     raw_show(&mut spi_adapter, &Info::Off);
+    pictures
+}
+
+pub fn capture() -> PictureSet {
+    println!("Capturing Pictures");
+    raw_capture().unwrap();
 
     let image_left = ImageReader::open("left.jpg")
         .expect("failed to load image")

@@ -11,7 +11,7 @@ use crate::square1::Square1;
 use super::{cameras::capture, motors::Motors, partpiece::{PartPiece, Shape}, pictureset::PictureSet};
 
 pub fn detect_square1(motors: &mut Motors, thumb_to_cam: bool, red_top: bool) -> Option<Square1> {
-    let (left_layer, right_layer) = match build_partpiece_layers(motors, true) {
+    let (left_layer, right_layer) = match build_partpiece_layers(motors) {
         Some(x) => x,
         None => return None
     };
@@ -33,65 +33,41 @@ pub fn detect_square1(motors: &mut Motors, thumb_to_cam: bool, red_top: bool) ->
     convert_partpieces(motors, left_layer, right_layer, thumb_to_cam, red_top)
 }
 
-pub fn build_partpiece_layers(motors: &mut Motors, small_steps: bool) -> Option<([Option<PartPiece>; 12], [Option<PartPiece>; 12])> {
+pub fn build_partpiece_layers(motors: &mut Motors) -> Option<([Option<PartPiece>; 12], [Option<PartPiece>; 12])> {
     let mut left_layer = [const { None }; 12];
     let mut right_layer = [const { None }; 12];
     // Take multiple pictures
     let mut pictures = capture();
-    for pic_num in if small_steps {0..6} else {0..3} {
+    for pic_num in 0..6 {
         if pic_num != 0 {
-            if small_steps {
-                motors.turn_layers(-2, 2, true);
-            } else {
-                motors.turn_layers(-4, 4, true);
-            }
-            sleep(Duration::from_millis(100));
+            motors.turn_layers(-2, 2, true);
+            sleep(Duration::from_millis(5));
             pictures = capture();
         }
 
         // Process every spot
-        if let Err(spot) = fill_layer(&mut left_layer, &pictures, pic_num, true, small_steps) {
-            println!("Piece overlap on left-{} at spot {}", pic_num, spot);
+        if let Err(spot) = fill_layer(&mut left_layer, &pictures, pic_num, true) {
+            println!("Undetected or Piece overlap on n{} left-{}", pic_num, spot);
             return None
         }
-        if let Err(spot) = fill_layer(&mut right_layer, &pictures, pic_num, false, small_steps) {
-            println!("Piece overlap on right-{} at spot {}", pic_num, spot);
+        if let Err(spot) = fill_layer(&mut right_layer, &pictures, pic_num, false) {
+            println!("Undetected or Piece overlap on n{} right-{}", pic_num, spot);
             return None
         }
-        print!("Left Layer");
-        for partpiece in &left_layer {
-            match partpiece {
-                Some(pp) => print!(" - {pp}"),
-                None => print!(" - NONE")
-            }
-        }
-        print!("\nRight Layer");
-        for partpiece in &right_layer {
-            match partpiece {
-                Some(pp) => print!(" - {pp}"),
-                None => print!(" - NONE")
-            }
-        }
-        println!()
     };
     // Correct for offset of layers relative to real turn
-    if small_steps {
-        left_layer.rotate_right(1);
-        right_layer.rotate_left(5);
-    } else {
-        left_layer.rotate_right(2);
-        right_layer.rotate_left(4);
-    }
+    left_layer.rotate_right(1);
+    right_layer.rotate_left(5);
     Some((left_layer, right_layer))
 }
 
-fn fill_layer(layer: &mut [Option<PartPiece>; 12], pictures: &PictureSet, pic_num: usize, left: bool, small_steps: bool) -> Result<(), usize> {
+fn fill_layer(layer: &mut [Option<PartPiece>; 12], pictures: &PictureSet, pic_num: usize, left: bool) -> Result<(), usize> {
     // Checks all spots
-    let offset = if small_steps {pic_num * 2} else {pic_num * 4};
-    for spot in if small_steps {vec![0, 1]} else {vec![1, 0, 2, 3]} {
+    let offset = pic_num * 2;
+    for spot in [0, 1] {
         match layer[offset + spot] {
             Some(_) => {},
-            None => match pictures.get_partpiece(left, if small_steps {spot + 1} else {spot}) {
+            None => match pictures.get_partpiece(left, spot) {
                 // If partpiece is detected
                 Some(partpiece) => {
                     match partpiece.shape {
@@ -185,7 +161,6 @@ fn get_turn_to_valid(layer: &Vec<PartPiece>) -> usize {
             }
         }
     }).fold(None, |acc, pos_turn| {
-        println!("{pos_turn}");
         match acc {
             Some(turn) => {
                 // Decides on the best turn

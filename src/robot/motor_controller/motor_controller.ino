@@ -101,8 +101,8 @@ void loop() {
           // 11xx
           // set speed mode
           if (command & 0b0001) {
-            sideL.setMaxSpeed(vel * 1.75);
-            sideR.setMaxSpeed(vel * 1.75);
+            sideL.setMaxSpeed(vel * 2);
+            sideR.setMaxSpeed(vel * 2);
             slice.setMaxSpeed(vel * 1.25);
           } else {
             sideL.setMaxSpeed(vel * 1.5);

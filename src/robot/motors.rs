@@ -20,7 +20,7 @@ pub struct Motors {
 
 impl Motors {
     pub fn new() -> Result<Self, ()> {
-        if let Ok(port) = serialport::new(PICCONFIG.get_usb_path(), 115200).open_native() {
+        if let Ok(port) = serialport::new(PICCONFIG.get_usb_path(), 115200).timeout(Duration::from_secs(100)).open_native() {
             sleep(Duration::from_secs(1));
             if port.clear(serialport::ClearBuffer::Input).is_err() {
                 println!("Failed to clear motor input buffer");
@@ -67,17 +67,13 @@ impl Motors {
     }
 
     pub(crate) fn grab(&mut self) {
-        if self.slice_pos.abs() < 2 {
-            if self.slice_pos < 0 {
-                self.slice_pos = -2
-            } else {
-                self.slice_pos = 2
-            }
-            let cmd = ser_slice_pos(self.slice_pos);
-            self.send_cmd(0b11110000 + 0b1000 + cmd);
+        if self.slice_pos < 0 {
+            self.slice_pos = -2
         } else {
-            println!("Already grabbed")
+            self.slice_pos = 2
         }
+        let cmd = ser_slice_pos(self.slice_pos);
+        self.send_cmd(0b11110000 + 0b1000 + cmd);
     }
 
     pub(crate) fn release(&mut self) {

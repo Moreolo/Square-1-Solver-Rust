@@ -3,6 +3,8 @@ use std::{fs, sync::LazyLock};
 
 use serde_derive::Deserialize;
 
+use crate::robot::partpiece::Shape;
+
 pub(crate) static PICCONFIG: LazyLock<PicConfig> = LazyLock::new(|| PicConfig::from_file());
 
 #[derive(Deserialize)]
@@ -10,15 +12,17 @@ pub(crate) struct PicConfig {
     spi: u8,
     usb_port: u8,
     line_classes: [i32; 6],
-    spots_left_ud: [(u32, u32); 4],
-    spots_left_side: [(u32, u32); 4],
-    spots_left_side_alt: [(u32, u32); 2],
-    spots_right_ud: [(u32, u32); 4],
-    spots_right_side: [(u32, u32); 4],
-    spots_right_side_alt: [(u32, u32); 2],
+    spots_left_ud: [(u32, u32); 2],
+    spots_left_side_e: [(u32, u32); 2],
+    spots_left_side_cs: [(u32, u32); 2],
+    spots_left_side_ce: [(u32, u32); 2],
+    spots_right_ud: [(u32, u32); 2],
+    spots_right_side_e: [(u32, u32); 2],
+    spots_right_side_cs: [(u32, u32); 2],
+    spots_right_side_ce: [(u32, u32); 2],
     spot_extra: (u32, u32),
-    areas_left: [(u32, u32, u32, u32); 4],
-    areas_right: [(u32, u32, u32, u32); 4],
+    areas_left: [(u32, u32, u32, u32); 2],
+    areas_right: [(u32, u32, u32, u32); 2],
     area_upper_slice: (u32, u32, u32, u32),
     area_lower_slice: (u32, u32, u32, u32)
 }
@@ -41,38 +45,34 @@ impl PicConfig {
         self.line_classes
     }
 
-    fn get_spot_deep(&self, field: usize, index: usize) -> (u32, u32) {
+    pub(crate) fn get_spot(&self, id: usize, shape: Shape) -> (u32, u32) {
+        let field = id / 2;
+        let index = id % 2;
         match field {
             0 => self.spots_left_ud[index],
-            1 => self.spots_left_side[index],
+            1 => match shape {
+                Shape::CornerStart => self.spots_left_side_cs[index],
+                Shape::Edge => self.spots_left_side_e[index],
+                Shape::CornerEnd => self.spots_left_side_ce[index],
+            }
             2 => self.spots_right_ud[index],
-            3 => self.spots_right_side[index],
+            3 => match shape {
+                Shape::CornerStart => self.spots_right_side_cs[index],
+                Shape::Edge => self.spots_right_side_e[index],
+                Shape::CornerEnd => self.spots_right_side_ce[index],
+            }
             4 => if index == 0 {
                 self.spot_extra
             } else {
                 panic!("Spot id out of range")
-            },
+            }
             _ => panic!("Spot id out of range")
         }
     }
 
-    pub(crate) fn get_spot(&self, id: usize, alt: bool) -> (u32, u32) {
-        let field = id / 4;
-        let index = id % 4;
-        if alt && (index == 1 || index == 2) {
-            match field {
-                1 => self.spots_left_side_alt[index - 1],
-                3 => self.spots_right_side_alt[index - 1],
-                _ => self.get_spot_deep(field, index)
-            }
-        } else {
-            self.get_spot_deep(field, index)
-        }
-    }
-
     pub(crate) fn get_area(&self, id: usize) -> (u32, u32, u32, u32) {
-        let field = id / 4;
-        let index = id % 4;
+        let field = id / 2;
+        let index = id % 2;
         match field {
             0 => self.areas_left[index],
             1 => self.areas_right[index],

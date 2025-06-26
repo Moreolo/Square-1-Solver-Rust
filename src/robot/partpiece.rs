@@ -2,6 +2,7 @@
 
 use std::fmt::Display;
 
+#[derive(Clone)]
 pub enum Shape {
     CornerStart,
     Edge,
@@ -151,10 +152,10 @@ impl PartPiece {
                 match self.udcolor {
                     UDColor::Black => {
                         match self.sidecolor {
-                            SideColor::Red => Some(1),
-                            SideColor::Blue => Some(3),
-                            SideColor::Orange => Some(5),
-                            SideColor::Green => Some(7),
+                            SideColor::Red => Some(7),
+                            SideColor::Blue => Some(1),
+                            SideColor::Orange => Some(3),
+                            SideColor::Green => Some(5),
                         }
                     },
                     UDColor::White => {

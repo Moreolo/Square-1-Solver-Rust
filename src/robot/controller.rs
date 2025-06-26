@@ -5,7 +5,7 @@
 // Controller indicates status through lights
 // The Controller is started by a seperate file that also takes numpad inputs
 
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, Mutex}, time::Instant};
 
 use crate::solver::{load_table, solve, Solution};
 
@@ -56,13 +56,18 @@ impl Controller {
     }
 
     pub fn detect(&mut self, wait: bool) -> bool {
-        cameras::show(&Info::Off);
+        println!("Detecting...");
+        cameras::show(&Info::Capture);
 
         // Take pictures to get slice config information
+
         let pictures = cameras::capture();
         let (thumb_to_cam, bar_solved, red_top) = pictures.get_slice_config();
         self.thumb_to_cam = thumb_to_cam;
         let slice_pos = if thumb_to_cam == bar_solved {-2} else {2};
+        if self.fast_mode {
+            self.motors.slow_mode();
+        }
         self.motors.start(Some(slice_pos));
         self.motors.grab();
 
@@ -78,7 +83,8 @@ impl Controller {
             println!("Detection failed");
             None
         };
-        match self.solution {
+
+        let success = match self.solution {
             Some(_) => {
                 if wait {
                     self.show_idle();
@@ -92,10 +98,15 @@ impl Controller {
                 self.show_idle();
                 false
             }
+        };
+        if self.fast_mode {
+            self.motors.fast_mode();
         }
+        success
     }
 
     pub fn execute(&mut self, stop: &Arc<Mutex<bool>>) {
+        println!("Executing...");
         {
             *stop.lock().unwrap() = false;
         }
@@ -110,7 +121,8 @@ impl Controller {
                 self.motors.start(None);
             }
         }
-
+        println!("Solution: {}", self.solution.as_ref().unwrap());
+        let now = Instant::now();
         // Execute solution
         let mut first = true;
         for (up,down) in self.solution.as_ref().unwrap().notation.clone() {
@@ -118,8 +130,6 @@ impl Controller {
             if {
                 *stop.lock().unwrap()
             } {
-                cameras::blink(&Info::Error);
-                *stop.lock().unwrap() = false;
                 break
             }
             if !first {
@@ -132,11 +142,21 @@ impl Controller {
             self.motors.turn_layers(up, down, self.thumb_to_cam);
         }
 
+        let elapsed = now.elapsed();
         self.motors.release();
-        // Reset state
-        self.solution = None;
-        self.show_idle();
         self.motors.stop();
+        self.solution = None;
+        if {
+            *stop.lock().unwrap()
+        } {
+            println!("Fail safe activated");
+            cameras::blink(&Info::Error);
+            *stop.lock().unwrap() = false;
+        } else {
+            println!("Finished in {:.2?}", elapsed);
+        }
+        // Reset state
+        self.show_idle();
         
     }
 

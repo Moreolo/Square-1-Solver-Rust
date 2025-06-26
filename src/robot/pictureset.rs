@@ -48,7 +48,7 @@ impl PictureSet {
     }
 
     pub fn get_partpiece(&self, left: bool, id: usize) -> Option<PartPiece> {
-        if id > 3 {
+        if id > 1 {
             panic!("id too large")
         }
         let left_text = if left {"left"} else {"right"};
@@ -58,15 +58,10 @@ impl PictureSet {
             UDColor::White => false
         };
         if let Some(shape) = self.get_shape(left, id, black) {
-            let alt = match shape {
-                Shape::CornerStart => id == 1,
-                Shape::Edge => false,
-                Shape::CornerEnd => id == 2,
-            };
             let partpiece = PartPiece {
-                shape,
+                shape: shape.clone(),
                 udcolor,
-                sidecolor: self.get_sidecolor(left, id, alt)
+                sidecolor: self.get_sidecolor(left, id, shape)
             };
             println!("Piece at {}-{} : {}", left_text, id, partpiece);
             Some(partpiece)
@@ -79,21 +74,21 @@ impl PictureSet {
     // returns the configuration of the slice
     // format: (thumb towards cam, slice solved, small red top)
     pub fn get_slice_config(&self) -> (bool, bool, bool) {
-        let thumb_to_cam = self.get_lines(false, 4, false).iter().fold(false, | acc, deg | {
+        let thumb_to_cam = self.get_lines(false, 2, false).iter().fold(false, | acc, deg | {
             if acc {
                 true
             } else {
                 *deg > -20 && *deg < 0
             }
         });
-        let slice_solved = thumb_to_cam == self.get_lines(false, 5, false).iter().fold(true, | acc, deg | {
+        let slice_solved = thumb_to_cam == self.get_lines(false, 3, false).iter().fold(true, | acc, deg | {
             if acc {
                 *deg < 0 || *deg > 20
             } else {
                 false
             }
         });
-        let red_top = match self.get_sidecolor(false, 4, false) {
+        let red_top = match self.get_sidecolor(false, 2, Shape::Edge) {
             SideColor::Red => thumb_to_cam,
             _ => !thumb_to_cam
         };
@@ -116,7 +111,7 @@ impl PictureSet {
         let (edge_image, (x, y, width, height)) = if left {
             (if black {&self.image_val_edges_left} else {&self.image_sat_edges_left}, PICCONFIG.get_area(id))
         } else {
-            (if black {&self.image_val_edges_right} else {&self.image_sat_edges_right}, PICCONFIG.get_area(id + 4))
+            (if black {&self.image_val_edges_right} else {&self.image_sat_edges_right}, PICCONFIG.get_area(id + 2))
         };
         // crop image
         let cropped_image = crop_imm(edge_image, x, y, width, height).to_image();
@@ -139,28 +134,26 @@ impl PictureSet {
     }
 
     fn get_shape(&self, left: bool, id: usize, black: bool) -> Option<Shape> {
-        self.get_lines(left, id, black).iter().fold( None, | acc, deg | {
-            match acc {
-                Some(shape) => Some(shape),
-                None => {
-                    let deg_class = arg_min(PICCONFIG.get_line_classes().iter().map(|diff| (deg - diff).abs()).collect());
-                    match deg_class as i32 - id as i32 {
-                        0 => if id != 0 {return Some(Shape::CornerStart)} else {None},
-                        1 => return Some(Shape::Edge),
-                        2 => if id != 3 {return Some(Shape::CornerEnd)} else {None},
-                        _ => None
-                    }
-                }
+        Some(self.get_lines(left, id, black).iter().fold( if id == 0 {Shape::CornerEnd} else {Shape::CornerStart}, | shape, deg | {
+            let deg_class = arg_min(PICCONFIG.get_line_classes().iter().map(|diff| (deg - diff).abs()).collect());
+            match deg_class as i32 - id as i32 {
+                1 => Shape::CornerStart,
+                2 => Shape::Edge,
+                3 => Shape::CornerEnd,
+                // 0 => if id != 0 {return Some(Shape::CornerStart)} else {None},
+                // 1 => return Some(Shape::Edge),
+                // 2 => if id != 3 {return Some(Shape::CornerEnd)} else {None},
+                _ => shape
             }
-        })
+        }))
     }
 
     fn get_udcolor(&self, left: bool, id: usize) -> UDColor {
         // process spot
         let (val_image, (x, y)) = if left {
-            (val_channel(&self.image_hsv_left), PICCONFIG.get_spot(id, false))
+            (val_channel(&self.image_hsv_left), PICCONFIG.get_spot(id, Shape::Edge))
         } else {
-            (val_channel(&self.image_hsv_right), PICCONFIG.get_spot(id + 8, false))
+            (val_channel(&self.image_hsv_right), PICCONFIG.get_spot(id + 4, Shape::Edge))
         };
         // crop image
         let cropped_image = crop_imm(&val_image,
@@ -180,12 +173,12 @@ impl PictureSet {
         }
     }
 
-    fn get_sidecolor(&self, left: bool, id: usize, alt: bool) -> SideColor {
+    fn get_sidecolor(&self, left: bool, id: usize, shape: Shape) -> SideColor {
         // process spot
         let (hue_image, (x, y)) = if left {
-            (hue_channel(&self.image_hsv_left), PICCONFIG.get_spot(id + 4, alt))
+            (hue_channel(&self.image_hsv_left), PICCONFIG.get_spot(id + 2, shape))
         } else {
-            (hue_channel(&self.image_hsv_right), PICCONFIG.get_spot(id + 12, alt))
+            (hue_channel(&self.image_hsv_right), PICCONFIG.get_spot(id + 6, shape))
         };
         // crop image
         let cropped_image = crop_imm(&hue_image,
@@ -198,9 +191,7 @@ impl PictureSet {
         let left_text = if left {"left"} else {"right"};
         println!("Hue of {}-{} : {}", left_text, id, median_hue);
         // classify median hue
-        if median_hue < 11 && (id == 0 || id == 3) {
-            SideColor::Red
-        } else if median_hue < 20 && (id == 1 || id == 2 || id == 4) {
+        if median_hue < 20 {
             SideColor::Red
         } else if median_hue < 60 {
             SideColor::Orange
@@ -218,27 +209,27 @@ impl PictureSet {
         let mut config_image_edges_left = edg2rgb(&self.image_sat_edges_left);
         let mut config_image_edges_right = edg2rgb(&self.image_sat_edges_right);
 
-        for i in 0..10 {
+        for i in 0..6 {
             let (x, y, width, height) = PICCONFIG.get_area(i);
-            if i < 4 {
+            if i < 2 {
                 draw_hollow_rect_mut(&mut config_image_edges_left, Rect::at(x as i32, y as i32).of_size(width, height), GREEN);
             } else {
                 draw_hollow_rect_mut(&mut config_image_edges_right, Rect::at(x as i32, y as i32).of_size(width, height), GREEN);
             }
         }
-        for i in 0..17 {
-            for alt in [true, false] {
-                let (x, y) = PICCONFIG.get_spot(i, alt);
-                if i < 8 {
+        for i in 0..9 {
+            for shape in [Shape::CornerStart, Shape::Edge, Shape:: CornerEnd] {
+                let (x, y) = PICCONFIG.get_spot(i, shape);
+                if i < 4 {
                     draw_filled_circle_mut(&mut config_image_rgb_left, (x as i32, y as i32), RADIUS as i32, BLACK);
-                    if i < 4 {
+                    if i < 2 {
                         draw_filled_circle_mut(&mut config_image_rgb_left, (x as i32, y as i32), (RADIUS-2) as i32, WHITE);
                     } else {
                         draw_filled_circle_mut(&mut config_image_rgb_left, (x as i32, y as i32), (RADIUS-2) as i32, YELLOW);
                     }
                 } else {
                     draw_filled_circle_mut(&mut config_image_rgb_right, (x as i32, y as i32), RADIUS as i32, BLACK);
-                    if i < 12 {
+                    if i < 6 {
                         draw_filled_circle_mut(&mut config_image_rgb_right, (x as i32, y as i32), (RADIUS-2) as i32, WHITE);
                     } else {
                         draw_filled_circle_mut(&mut config_image_rgb_right, (x as i32, y as i32), (RADIUS-2) as i32, YELLOW);
