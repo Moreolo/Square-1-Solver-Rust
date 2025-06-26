@@ -101,8 +101,8 @@ void loop() {
           // 11xx
           // set speed mode
           if (command & 0b0001) {
-            sideL.setMaxSpeed(vel * 2);
-            sideR.setMaxSpeed(vel * 2);
+            sideL.setMaxSpeed(vel * 3);
+            sideR.setMaxSpeed(vel * 3);
             slice.setMaxSpeed(vel * 1.25);
           } else {
             sideL.setMaxSpeed(vel * 1.5);
@@ -115,7 +115,7 @@ void loop() {
           // moves to slice position
           switch (command & 0b0011) {
             case 0:
-              slice.runToNewPosition((long) (-(outerPos + 0.1) * rev / 4));
+              slice.runToNewPosition((long) (-(outerPos + 0.05) * rev / 4));
               slice.setCurrentPosition(-outerPos * rev / 4);
               break;
             case 1:
@@ -125,7 +125,7 @@ void loop() {
               slice.runToNewPosition(1 * rev / 4);
               break;
             case 3:
-              slice.runToNewPosition((long) ((outerPos + 0.1) * rev / 4));
+              slice.runToNewPosition((long) ((outerPos + 0.05) * rev / 4));
               slice.setCurrentPosition(outerPos * rev / 4);
               break;
           }

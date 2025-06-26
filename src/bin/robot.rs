@@ -1,4 +1,4 @@
-use std::{process::exit, sync::{Arc, Mutex}};
+use std::{process::exit, sync::{Arc, Mutex}, thread::sleep, time::Duration};
 
 use square_1_solver_rust::robot::controller::Controller;
 
@@ -46,6 +46,18 @@ fn main() {
         println!("Numlock pressed");
         if let Ok(mut contr) = contr_numlock.try_lock() {
             contr.toggle_fast_mode();
+        }
+    });
+
+    let contr_9 = Arc::clone(&contr_base);
+    inputbot::KeybdKey::Numpad9Key.bind(move || {
+        println!("Numpad 9 / PgUp pressed");
+        if let Ok(mut contr) = contr_9.try_lock() {
+            contr.start_motors();
+            while inputbot::KeybdKey::Numpad9Key.is_pressed() {
+                sleep(Duration::from_millis(100));
+            }
+            contr.stop_motors();
         }
     });
 

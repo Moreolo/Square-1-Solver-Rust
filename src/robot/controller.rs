@@ -65,9 +65,9 @@ impl Controller {
         let (thumb_to_cam, bar_solved, red_top) = pictures.get_slice_config();
         self.thumb_to_cam = thumb_to_cam;
         let slice_pos = if thumb_to_cam == bar_solved {-2} else {2};
-        if self.fast_mode {
-            self.motors.slow_mode();
-        }
+        // if self.fast_mode {
+        //     self.motors.slow_mode();
+        // }
         self.motors.start(Some(slice_pos));
         self.motors.grab();
 
@@ -99,9 +99,9 @@ impl Controller {
                 false
             }
         };
-        if self.fast_mode {
-            self.motors.fast_mode();
-        }
+        // if self.fast_mode {
+        //     self.motors.fast_mode();
+        // }
         success
     }
 
@@ -158,6 +158,14 @@ impl Controller {
         // Reset state
         self.show_idle();
         
+    }
+
+    pub fn start_motors(&mut self) {
+        self.motors.start(Some(1));
+    }
+
+    pub fn stop_motors(&mut self) {
+        self.motors.stop();
     }
 
     pub fn quit(&mut self) {
