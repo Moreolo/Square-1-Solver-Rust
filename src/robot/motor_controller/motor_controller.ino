@@ -14,7 +14,7 @@
 
 #define rev 200 * 2
 #define vel rev * 2
-#define acc vel * 100.
+#define acc vel * 75.
 
 int left_pos = 0;
 int right_pos = 0;

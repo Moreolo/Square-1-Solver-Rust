@@ -15,21 +15,21 @@ fn main() {
     // sleep(Duration::from_millis(2000));
     // motors.turn_slice();
     sleep(Duration::from_millis(10));
-    motors.turn_slice();
-    sleep(Duration::from_secs(2));
-    motors.turn_slice();
-    sleep(Duration::from_secs(2));
-    // let step_size = 6;
-    // let total = 12 / step_size;
+    // motors.turn_slice();
+    // sleep(Duration::from_secs(2));
+    // motors.turn_slice();
+    // sleep(Duration::from_secs(2));
+    let step_size = 6;
+    let total = 12 / step_size;
     // for _ in 0..total {
     //     motors.turn_layers(-step_size, step_size, true);
     //     sleep(Duration::from_millis(500));
     // }
-    // for _ in 0..total {
-    //     motors.turn_layers(step_size, -step_size, true);
-    //     sleep(Duration::from_millis(500));
-    // }
-    //motors.turn_layers(-4, 2, false);
+    for _ in 0..total {
+        motors.turn_layers(step_size, -step_size, true);
+        sleep(Duration::from_millis(500));
+    }
+    motors.turn_layers(-2, 2, false);
     sleep(Duration::from_secs(1));
     motors.stop();
 }
