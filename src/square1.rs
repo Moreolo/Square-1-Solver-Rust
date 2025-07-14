@@ -1,4 +1,5 @@
 use core::array::from_fn;
+use rand::Rng;
 
 const SQSQ_UNIQUE_TURNS_BA: [(usize, usize); 16] = [(1, 0), (5, 0), (3, 0), (7, 0),
                                                     (0, 1), (0, 5), (2, 1), (6, 1),
@@ -42,6 +43,35 @@ pub struct Square1 {
 impl Square1 {
     pub fn solved() -> Square1 {
         Square1 {pieces: from_fn(|i| i as u8)}
+    }
+
+    pub fn scrambled() -> (Square1, bool) {
+        let mut rng = rand::rng();
+        let mut piece_pool: Vec<u8> = (0..16).collect();
+        let mut edge_pool: Vec<u8> = (0..8).map(|x| x * 2 + 1).collect();
+
+        let mut pieces = [0; 16];
+        let mut fill = 0;
+
+        for i in 0..16 {
+            pieces[i] = if fill % 6 == 5 {
+                let piece = edge_pool.swap_remove(rng.random_range(0..edge_pool.len()));
+                piece_pool.retain(|x| *x != piece);
+                fill += 1;
+                piece
+            } else {
+                let piece = piece_pool.swap_remove(rng.random_range(0..piece_pool.len()));
+                if piece % 2 == 0 {
+                    fill += 2;
+                } else {
+                    edge_pool.retain(|x| *x != piece);
+                    fill += 1;
+                }
+                piece
+            }
+        }
+        
+        (Square1 { pieces }, rng.random_bool(0.5))
     }
 
     pub fn from_arr(arr: [u8; 16]) -> Square1 {

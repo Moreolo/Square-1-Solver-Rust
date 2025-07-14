@@ -163,6 +163,14 @@ impl fmt::Display for Solution {
     }
 }
 
+impl Solution {
+    pub fn inverse(&self) -> Self {
+        let mut notation = self.notation.clone();
+        notation.reverse();
+        Self { notation: notation.iter().map(|(u, d)| (-u, -d)).collect() }
+    }
+}
+
 pub fn solve(square1: Square1, bar_solved: bool) -> Result<Solution, ()> {
     if !square1.is_valid() {
         Err(())
