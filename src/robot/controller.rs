@@ -7,7 +7,7 @@
 
 use std::{sync::{Arc, Mutex}, time::Instant};
 
-use crate::solver::{load_table, solve, Solution};
+use crate::{solver::{load_table, solve, Solution}, square1};
 
 use super::{builder::detect_square1, cameras::{self, Info}, motors::Motors};
 
@@ -55,6 +55,45 @@ impl Controller {
         self.show_idle();
     }
 
+    pub fn scramble(&mut self, stop: &Arc<Mutex<bool>>) {
+        cameras::show(&Info::Capture);
+
+        // Take pictures to get slice config information
+
+        let pictures = cameras::capture();
+        let (thumb_to_cam, bar_solved, _) = pictures.get_slice_config();
+
+        if !bar_solved {
+            println!("Bar not solved, cannot be solved");
+        } else {
+            self.thumb_to_cam = thumb_to_cam;
+            let slice_pos = if thumb_to_cam == bar_solved {-2} else {2};
+
+            cameras::show(&Info::Off);
+
+            let (square1, new_bar_solved) = square1::Square1::scrambled();
+            let solution = match solve(square1.clone(), new_bar_solved) {
+                Ok(solution) => solution,
+                Err(()) => {
+                    println!("Failed to scramble");
+                    return
+                }
+            };
+            let scramble = solution.inverse();
+            println!("{square1:?}, {}", if new_bar_solved {"bar solved"} else {"bar not solved"});
+            println!("Scramble: {scramble}");
+            println!("Soltion: {solution}");
+            self.solution = Some(scramble);
+
+            self.motors.start(Some(slice_pos));
+            if self.execute(stop) {
+                self.solution = Some(solution);
+            }
+        } 
+
+        self.show_idle();
+    }
+
     pub fn detect(&mut self, wait: bool) -> bool {
         println!("Detecting...");
         cameras::show(&Info::Capture);
@@ -73,7 +112,10 @@ impl Controller {
 
         self.solution = if let Some(square1) = detect_square1(&mut self.motors, thumb_to_cam, red_top) {
             match solve(square1, bar_solved) {
-                Ok(solution) => Some(solution),
+                Ok(solution) => {
+                    println!("Solution: {}", solution);
+                    Some(solution)
+                },
                 Err(_) => {
                     println!("Square-1 invalid");
                     None
@@ -105,7 +147,7 @@ impl Controller {
         success
     }
 
-    pub fn execute(&mut self, stop: &Arc<Mutex<bool>>) {
+    pub fn execute(&mut self, stop: &Arc<Mutex<bool>>) -> bool {
         println!("Executing...");
         {
             *stop.lock().unwrap() = false;
@@ -113,7 +155,7 @@ impl Controller {
         match &self.solution {
             None => {
                 if !self.detect(false) {
-                    return
+                    return false
                 }
             },
             _ => {
@@ -121,7 +163,6 @@ impl Controller {
                 self.motors.start(None);
             }
         }
-        println!("Solution: {}", self.solution.as_ref().unwrap());
         let now = Instant::now();
         // Execute solution
         let mut first = true;
@@ -152,11 +193,13 @@ impl Controller {
             println!("Fail safe activated");
             cameras::blink(&Info::Error);
             *stop.lock().unwrap() = false;
+            self.show_idle();
+            false
         } else {
             println!("Finished in {:.2?}", elapsed);
+            self.show_idle();
+            true
         }
-        // Reset state
-        self.show_idle();
         
     }
 

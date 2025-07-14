@@ -35,6 +35,15 @@ fn main() {
         }
     });
 
+    let contr_1 = Arc::clone(&contr_base);
+    let stop_1 = Arc::clone(&stop);
+    inputbot::KeybdKey::EndKey.bind(move || {
+        println!("Numpad 1 / End pressed");
+        if let Ok(mut contr) = contr_1.try_lock() {
+            contr.scramble(&stop_1);
+        }
+    });
+
     let stop_backspace = Arc::clone(&stop);
     inputbot::KeybdKey::BackspaceKey.bind(move || {
         println!("Backspace pressed");
