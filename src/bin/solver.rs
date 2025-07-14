@@ -17,4 +17,5 @@ fn main() {
     println!("Found solution in {}", format_duration(elapsed));
     println!("Solution: {}", solution);
     println!("Scramble: {}", solution.inverse());
+    println!("{:?}", Square1::from_notation(solution.inverse()));
 }

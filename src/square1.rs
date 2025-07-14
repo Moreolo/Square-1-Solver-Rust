@@ -1,6 +1,8 @@
 use core::array::from_fn;
 use rand::Rng;
 
+use crate::solver::Solution;
+
 const SQSQ_UNIQUE_TURNS_BA: [(usize, usize); 16] = [(1, 0), (5, 0), (3, 0), (7, 0),
                                                     (0, 1), (0, 5), (2, 1), (6, 1),
                                                     (1, 2), (1, 6), (7, 2), (7, 6),
@@ -85,6 +87,27 @@ impl Square1 {
             num >>= 4;
         }
         Square1 {pieces: arr}
+    }
+
+    pub fn from_notation(sequence: Solution) -> Result<Self, ()> {
+        let mut square1 = Self::solved();
+        let mut first = true;
+        
+        for turn in sequence.notation {
+            if first {
+                first = false;
+            } else {
+                if square1.turn_slice().is_err() {
+                    println!("Sequence not sliceable");
+                    return Err(())
+                };
+            }
+            if square1.turn_layers_human_readable(&turn).is_err() {
+                println!("Sequence contains bad turns");
+                return Err(())
+            }
+        }
+        Ok(square1)
     }
 
     pub fn get_num(&self) -> u64 {
@@ -357,5 +380,39 @@ impl Square1 {
         set.sort();
         set.dedup();
         self.pieces.len() == 16 && set.len() == 16
+    }
+
+    fn turn_layers_human_readable(&mut self, turn: &(i8, i8)) -> Result<(), ()> {
+        let (mut up, mut down) = (0, 0);
+        let (mut up_pos, mut down_pos) = (false, false);
+        let up_angle = if turn.0 <= 0 {- turn.0} else {12 - turn.0} as usize;
+        let down_angle = if turn.1 < 0 {turn.1 + 12} else {turn.1} as usize + 12;
+        let mut angle = 0;
+        for i in 0..16 {
+            if angle < 12 {
+                if angle < up_angle {
+                    up += 1;
+                } else if angle == up_angle {
+                    up_pos = true;
+                }
+            } else {
+                if angle < down_angle {
+                    down += 1;
+                } else if angle == down_angle {
+                    down_pos = true;
+                }
+            }
+            match self.pieces[i] % 2 {
+                0 => angle += 2,
+                1 => angle += 1,
+                _ => {}
+            }
+        }
+        if up_pos && down_pos {
+            self.turn_layers(&(up, down));
+            Ok(())
+        } else {
+            Err(())
+        }
     }
 }
