@@ -184,7 +184,7 @@ impl Controller {
         }
 
         let elapsed = now.elapsed();
-        self.motors.release();
+        //self.motors.release();
         self.motors.stop();
         self.solution = None;
         if {

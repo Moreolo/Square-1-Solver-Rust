@@ -76,7 +76,7 @@ impl Motors {
         self.send_cmd(0b11110000 + 0b1000 + cmd);
     }
 
-    pub(crate) fn release(&mut self) {
+    pub(crate) fn _release(&mut self) {
         if self.slice_pos.abs() > 1 {
             self.slice_pos /= 2;
             let cmd = ser_slice_pos(self.slice_pos);
