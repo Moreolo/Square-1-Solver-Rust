@@ -1,4 +1,4 @@
-use std::{cmp::{max, min}, fmt, sync::LazyLock};
+use std::{cmp::{max, min}, fmt, iter::Peekable, str::FromStr, sync::LazyLock};
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
@@ -143,6 +143,80 @@ pub struct Solution {
     pub notation: Vec<(i8, i8)>
 }
 
+impl FromStr for Solution {
+    type Err = ();
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut c = s.chars()
+            .filter(|x|!x.is_whitespace())
+            .peekable();
+        let mut solution = match c.peek() {
+            Some('(') => Self::parse_tuple(c)?,
+            Some('/') => {
+                c.next();
+                Self::parse_tuple(c)
+                    .map(|mut s|{
+                        s.notation.push((0, 0));
+                        s
+                    })?
+            },
+            _ => return Err(()),
+        };
+        solution.notation.reverse();
+        Ok(solution)
+    }
+}
+
+impl Solution {
+    fn parse_tuple(mut c: Peekable<impl Iterator<Item = char>>) -> Result<Solution, ()> {
+        if c.next() != Some('(') {
+            return Err(());
+        }
+        let a = Self::parse_num(&mut c)?;
+        if c.next() != Some(',') {
+            return Err(());
+        }
+        let b = Self::parse_num(&mut c)?;
+        if c.next() != Some(')') {
+            return Err(());
+        }
+        Solution::parse_slash(c)
+                .map(|mut s|{
+                    s.notation.push((a, b));
+                    s
+                })
+    }
+
+    fn parse_slash(mut c: Peekable<impl Iterator<Item = char>>) -> Result<Solution, ()> {
+        match c.next() {
+            Some('/') => {
+                if c.peek().is_none() {
+                    Ok(Solution {
+                        notation: vec![(0, 0)],
+                    })
+                } else {
+                    Self::parse_tuple(c)   
+                }
+            },
+            None => Ok(Solution {
+                notation: vec![],
+            }),
+            _ => Err(())
+        }
+        
+    }
+
+    
+
+    fn parse_num<'a>(c: &mut Peekable<impl Iterator<Item = char>>) -> Result<i8, ()> {
+        match c.next() {
+            Some('-') => Self::parse_num(c).map(|x|-x),
+            Some(c) => i8::from_str(c.to_string().as_str()).map_err(|_|()),
+            _ => Err(())
+        }
+    }
+}
+
 impl fmt::Display for Solution {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut sequence = String::new();
@@ -213,4 +287,16 @@ fn get_length(readable: (i8, i8)) -> u8 {
 
 fn get_length_swap(readable: (i8, i8)) -> u8 {
     6 - min(readable.0.abs(), readable.1.abs()) as u8
+}
+
+mod test {
+    use std::str::FromStr;
+
+    use crate::solver::Solution;
+
+    #[test]
+    pub fn test_parse() {
+        let s = Solution::from_str("(2,3)/(-2,5)/(6,0)/(0,1)").unwrap();
+        println!("{s}");
+    }
 }
