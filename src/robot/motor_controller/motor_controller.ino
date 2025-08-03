@@ -14,7 +14,7 @@
 
 #define rev 200 * 2
 #define vel rev * 2
-#define acc vel * 50.
+#define acc vel * 25.
 
 int left_pos = 0;
 int right_pos = 0;
@@ -104,10 +104,16 @@ void loop() {
             sideL.setMaxSpeed(vel * 3);
             sideR.setMaxSpeed(vel * 3);
             slice.setMaxSpeed(vel * 1.25);
+            sideL.setAcceleration(acc * 3);
+            sideR.setAcceleration(acc * 3);
+            slice.setAcceleration(acc * 3);
           } else {
             sideL.setMaxSpeed(vel * 1.5);
             sideR.setMaxSpeed(vel * 1.5);
             slice.setMaxSpeed(vel);
+            sideL.setAcceleration(acc);
+            sideR.setAcceleration(acc);
+            slice.setAcceleration(acc);
           }
           Serial.write(0x00);
         } else {

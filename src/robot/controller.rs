@@ -5,7 +5,7 @@
 // Controller indicates status through lights
 // The Controller is started by a seperate file that also takes numpad inputs
 
-use std::{sync::{Arc, Mutex}, time::Instant};
+use std::{sync::{Arc, Mutex}, thread::sleep, time::{Duration, Instant}};
 
 use crate::{solver::{load_table, solve, Solution}, square1};
 
@@ -185,6 +185,7 @@ impl Controller {
 
         let elapsed = now.elapsed();
         //self.motors.release();
+        sleep(Duration::from_millis(100));
         self.motors.stop();
         self.solution = None;
         if {
